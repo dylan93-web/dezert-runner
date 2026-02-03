@@ -667,26 +667,48 @@ function generateWorld(upToX){
       var highY=itemY+10;
       var highX=itemX-highW/2;
       var needStep=localGround-highY>MAX_JUMP_HEIGHT;
+
+      // Varied platform layout patterns
+      var layoutPattern=Math.floor(Math.random()*5);
       if(needStep){
         var lowY=localGround-MAX_JUMP_HEIGHT+4;
         var lowW=22+Math.floor(Math.random()*8);
-        var offset=18+Math.floor(Math.random()*10);
-        var lowX=highX-offset;
-        if(!platformOverlaps(lowX,lowW,lowY)) platforms.push({x:lowX,y:lowY,w:lowW});
+        var offset=18+Math.floor(Math.random()*12);
+
+        if(layoutPattern===0){
+          // Pattern 0: Step on left
+          var lowX=highX-offset;
+          if(!platformOverlaps(lowX,lowW,lowY)) platforms.push({x:lowX,y:lowY,w:lowW});
+        } else if(layoutPattern===1){
+          // Pattern 1: Step on right
+          var lowX=highX+highW+offset-lowW;
+          if(!platformOverlaps(lowX,lowW,lowY)) platforms.push({x:lowX,y:lowY,w:lowW});
+        } else if(layoutPattern===2){
+          // Pattern 2: Two steps (zigzag left-right)
+          var midY=localGround-MAX_JUMP_HEIGHT*0.6;
+          var midW=18+Math.floor(Math.random()*6);
+          var midX=highX-offset*0.7;
+          if(!platformOverlaps(midX,midW,midY)) platforms.push({x:midX,y:midY,w:midW});
+          var lowX=highX+highW+offset*0.5-lowW;
+          if(!platformOverlaps(lowX,lowW,lowY)) platforms.push({x:lowX,y:lowY,w:lowW});
+        } else if(layoutPattern===3){
+          // Pattern 3: Two steps (zigzag right-left)
+          var midY=localGround-MAX_JUMP_HEIGHT*0.6;
+          var midW=18+Math.floor(Math.random()*6);
+          var midX=highX+highW+offset*0.5;
+          if(!platformOverlaps(midX,midW,midY)) platforms.push({x:midX,y:midY,w:midW});
+          var lowX=highX-offset;
+          if(!platformOverlaps(lowX,lowW,lowY)) platforms.push({x:lowX,y:lowY,w:lowW});
+        } else {
+          // Pattern 4: Centered step directly below
+          var lowX=highX+(highW-lowW)/2;
+          if(!platformOverlaps(lowX,lowW,lowY)) platforms.push({x:lowX,y:lowY,w:lowW});
+        }
         if(!platformOverlaps(highX,highW,highY)) platforms.push({x:highX,y:highY,w:highW});
       } else {
         if(!platformOverlaps(highX,highW,highY)) platforms.push({x:highX,y:highY,w:highW});
       }
-      // Level 2: add extra upper platforms (stair-stepped)
-      if(level===2&&Math.random()<0.35){
-        var extraY=highY-MAX_JUMP_HEIGHT+8;
-        if(extraY>25){
-          var extraW=20+Math.floor(Math.random()*8);
-          var extraOffset=22+Math.floor(Math.random()*12);
-          var extraX=highX+(Math.random()<0.5?extraOffset:-extraOffset-extraW);
-          if(!platformOverlaps(extraX,extraW,extraY)) platforms.push({x:extraX,y:extraY,w:extraW});
-        }
-      }
+      // NOTE: Removed random extra platforms in Level 2 - only add platforms with items
       if(itemType==="heart"){
         heartPickups.push({x:itemX,y:itemY,bob:Math.random()*6.28});
         lastHeartX=itemX;
