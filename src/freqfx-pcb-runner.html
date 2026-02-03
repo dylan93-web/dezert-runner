@@ -145,8 +145,9 @@ var MAX_JUMP_HEIGHT=38;
 var LEVEL_2_THRESHOLD=500;
 var LEVEL_3_THRESHOLD=1000;
 var LEVEL_TRANSITION_TIME=1.2;
-var LEVEL_3_TRANSITION_TIME=0.8;
+var LEVEL_3_TRANSITION_TIME=2.0; // Long visible pit fall
 var SPAWN_PAUSE_TIME=0.8;
+var PIT_FALL_SPEED=400;
 
 // Ship enemy constants
 var SHIP_SPEED=50;
@@ -201,6 +202,10 @@ var DROID_FIRE_INTERVAL=2.8;
 var DROID_FIRE_TELEGRAPH=0.25;
 var LASER_SPEED=70;
 var MAX_LASERS=2;
+
+// Level 3 droids - more aggressive
+var DROID_L3_FIRE_INTERVAL=1.8;
+var MAX_LASERS_L3=4;
 
 // Level 3 enemies
 // Big Worm — larger sandworm that shoots daggers
@@ -472,7 +477,7 @@ var lastGenX=0,lastPowerX=0,lastHeartX=0,lastInvincX=0;
 var level=1;
 var levelTransitionTimer=0;
 var spawnPauseTimer=0;
-var pitFallTimer=0;
+var pitFallTimer=0,pitFallScroll=0;
 var bigwormTimer=0,spiderTimer=0;
 
 // Invincibility once per level gate
@@ -640,7 +645,7 @@ function resetGame(){
   heartPickups=[];powerCells=[];invincPickups=[];sandworms=[];
   score=0;maxX=60;gameTime=0;spawnTimer=SAFE_START;shakeTimer=0;lastGenX=0;lastPowerX=0;lastHeartX=0;lastInvincX=0;
   stompFlash=0;stompCooldown=0;
-  level=1;levelTransitionTimer=0;spawnPauseTimer=0;pitFallTimer=0;
+  level=1;levelTransitionTimer=0;spawnPauseTimer=0;pitFallTimer=0;pitFallScroll=0;
   invincSpawned={1:false,2:false,3:false};
   wormTimer=WORM_MIN_INTERVAL+Math.random()*(WORM_MAX_INTERVAL-WORM_MIN_INTERVAL);
   flierTimer=5+Math.random()*3;
@@ -833,20 +838,25 @@ function update(dt){
     hudLevel.textContent="LVL 2";
     hudLevel.style.color="#cc88ff";
   }
-  // Level 3 transition with pit fall
+  // Level 3 transition with long visible pit fall
   if(level===2&&score>=LEVEL_3_THRESHOLD&&pitFallTimer<=0){
     pitFallTimer=LEVEL_3_TRANSITION_TIME;
-    spawnPauseTimer=LEVEL_3_TRANSITION_TIME+0.5;
+    pitFallScroll=0;
+    spawnPauseTimer=LEVEL_3_TRANSITION_TIME+0.8;
   }
   if(pitFallTimer>0){
     pitFallTimer-=dt;
-    player.vy=300; // Force downward
+    pitFallScroll+=PIT_FALL_SPEED*dt;
+    player.vy=PIT_FALL_SPEED; // Force downward fast
+    player.vx=player.vx*0.9; // Dampen horizontal movement
+    player.y=GROUND_Y-20; // Keep player centered vertically during fall
     if(pitFallTimer<=0){
       level=3;
       levelTransitionTimer=LEVEL_TRANSITION_TIME;
-      player.y=GROUND_Y;player.vy=0;player.onGround=true;
+      player.y=GROUND_Y-2;player.vy=80;player.onGround=false; // Small landing bounce
       hudLevel.textContent="LVL 3";
       hudLevel.style.color="#ff8844";
+      pitFallScroll=0;
     }
   }
 
@@ -955,20 +965,22 @@ function update(dt){
 
   generateWorld(cam.x+W+500);
 
-  // Spawning based on level
+  // Spawning based on level (Level 3 cave has no ships/sandworms)
   spawnTimer-=dt;
   if(spawnTimer<=0){
     spawnTimer=Math.max(SPAWN_BASE-gameTime*SPAWN_RAMP,SPAWN_MIN);
     if(level===1){
       spawnEnemy();
       if(gameTime>30&&Math.random()<0.2) spawnEnemy();
-    } else {
+    } else if(level===2){
       // Level 2: fewer ships, add fliers/droids
       if(Math.random()<0.3) spawnEnemy();
     }
+    // Level 3: no ships spawn in the cave
   }
 
-  if(gameTime>SAFE_START){
+  // Sandworms only in Level 1 and 2 (surface levels)
+  if(gameTime>SAFE_START&&level!==3){
     wormTimer-=dt;
     if(wormTimer<=0){
       wormTimer=WORM_MIN_INTERVAL+Math.random()*(WORM_MAX_INTERVAL-WORM_MIN_INTERVAL);
@@ -991,20 +1003,24 @@ function update(dt){
     }
   }
 
-  // Level 3 enemies (harder, endless)
+  // Level 3 enemies (cave only: big worms, spiders, red droids - NO ships/fliers)
   if(level===3){
     bigwormTimer-=dt;
     if(bigwormTimer<=0){
-      bigwormTimer=4+Math.random()*3;
+      bigwormTimer=3.5+Math.random()*2.5;
       spawnBigworm();
     }
     spiderTimer-=dt;
     if(spiderTimer<=0){
-      spiderTimer=3+Math.random()*2;
+      spiderTimer=2.5+Math.random()*2;
       spawnSpider();
     }
-    // Still spawn some ships for variety
-    if(Math.random()<0.008) spawnEnemy();
+    // Red droids with increased fire rate
+    droidTimer-=dt;
+    if(droidTimer<=0){
+      droidTimer=4+Math.random()*3;
+      spawnDroid();
+    }
   }
 
   // Props
@@ -1201,7 +1217,9 @@ function update(dt){
     }
   }
 
-  // Droids (Level 2)
+  // Droids (Level 2 and 3 - more aggressive in L3)
+  var droidFireInt=level===3?DROID_L3_FIRE_INTERVAL:DROID_FIRE_INTERVAL;
+  var maxLasersNow=level===3?MAX_LASERS_L3:MAX_LASERS;
   for(var dri=droids.length-1;dri>=0;dri--){
     var drd=droids[dri];
     drd.x+=drd.vx*dt;
@@ -1216,8 +1234,8 @@ function update(dt){
       drd.telegraphTimer-=dt;
       if(drd.telegraphTimer<=0){
         drd.telegraphing=false;
-        drd.fireTimer=DROID_FIRE_INTERVAL+Math.random()*1.5;
-        if(lasers.length<MAX_LASERS){
+        drd.fireTimer=droidFireInt+Math.random()*1.0;
+        if(lasers.length<maxLasersNow){
           var laserDir=player.x<drd.x?-1:1;
           lasers.push({x:drd.x+laserDir*5,y:drd.y-6,vx:laserDir*LASER_SPEED,life:3});
         }
@@ -1462,6 +1480,92 @@ function drawShadow(sx,sy,w){
   ctx.globalAlpha=1;
 }
 
+// Cave ceiling stalactites and rock formations (Level 3)
+function drawCaveCeiling(){
+  var scrollX=cam.x*0.05; // Slow parallax for depth
+  // Dark rock layer at very top
+  R(0,0,W,18,"#0a0604");
+  // Irregular stalactites along ceiling
+  ctx.fillStyle="#1a1008";
+  for(var i=0;i<20;i++){
+    var seed=i*73+13;
+    var bx=(i*20+((seed*7)%15)-scrollX*0.3)%W;
+    if(bx<-15) bx+=W+30;
+    var bh=8+((seed*11)%12);
+    ctx.beginPath();
+    ctx.moveTo(bx-4-((seed*3)%4),15);
+    ctx.lineTo(bx+((seed*5)%3)-1,15+bh);
+    ctx.lineTo(bx+4+((seed*2)%4),15);
+    ctx.fill();
+  }
+  // Shorter stalactites layer
+  ctx.fillStyle="#241810";
+  for(var i=0;i<25;i++){
+    var seed=i*97+31;
+    var bx=(i*16+((seed*5)%12)-scrollX*0.4)%W;
+    if(bx<-12) bx+=W+24;
+    var bh=5+((seed*7)%8);
+    ctx.beginPath();
+    ctx.moveTo(bx-3,12);
+    ctx.lineTo(bx,12+bh);
+    ctx.lineTo(bx+3,12);
+    ctx.fill();
+  }
+  // Rock edge along top
+  ctx.fillStyle="#0d0805";
+  ctx.beginPath();
+  ctx.moveTo(0,16);
+  for(var x=0;x<=W;x+=8){
+    var seed=x*47+F(scrollX*0.2);
+    var yoff=2+((seed*13)%5);
+    ctx.lineTo(x,16+yoff);
+  }
+  ctx.lineTo(W,0);ctx.lineTo(0,0);
+  ctx.fill();
+  // Darker edge highlight
+  ctx.strokeStyle="#060402";ctx.lineWidth=1;
+  ctx.beginPath();
+  ctx.moveTo(0,18);
+  for(var x=0;x<=W;x+=6){
+    var seed=x*53+F(scrollX*0.15);
+    var yoff=1+((seed*11)%4);
+    ctx.lineTo(x,17+yoff);
+  }
+  ctx.stroke();
+}
+
+// Cave darkness overlay with torch light pools (Level 3)
+function drawCaveOverlay(){
+  if(level!==3) return;
+  // Overall cave darkness vignette
+  ctx.globalAlpha=0.4;
+  ctx.fillStyle="#000";
+  ctx.fillRect(0,0,W,H);
+  // Torch light pools - subtract darkness around torches
+  ctx.globalCompositeOperation="destination-out";
+  for(var i=0;i<torches.length;i++){
+    var t=torches[i],sx=wxf(t.x);
+    if(sx<-60||sx>W+60) continue;
+    var flick=Math.sin(t.flicker*5)*0.1+0.9;
+    var grad=ctx.createRadialGradient(sx,GROUND_Y-15,0,sx,GROUND_Y-15,55*flick);
+    grad.addColorStop(0,"rgba(0,0,0,0.7)");
+    grad.addColorStop(0.5,"rgba(0,0,0,0.4)");
+    grad.addColorStop(1,"rgba(0,0,0,0)");
+    ctx.fillStyle=grad;
+    ctx.fillRect(sx-60,GROUND_Y-70,120,80);
+  }
+  // Player glow (robot lights)
+  var px=wxf(player.x);
+  var grad=ctx.createRadialGradient(px,player.y-8,0,px,player.y-8,35);
+  grad.addColorStop(0,"rgba(0,0,0,0.5)");
+  grad.addColorStop(0.6,"rgba(0,0,0,0.2)");
+  grad.addColorStop(1,"rgba(0,0,0,0)");
+  ctx.fillStyle=grad;
+  ctx.fillRect(px-40,player.y-45,80,60);
+  ctx.globalCompositeOperation="source-over";
+  ctx.globalAlpha=1;
+}
+
 function drawSky(){
   var bands=24;
   for(var i=0;i<bands;i++){
@@ -1490,13 +1594,13 @@ function drawSky(){
         r=F(50+t2*15);g=F(40+t2*15);b=F(70+t2*10);
       }
     } else {
-      // Level 3 cave ceiling - very dark
+      // Level 3 cave interior - dark rock background
       if(t<0.5){
         var t2=t/0.5;
-        r=F(8+t2*8);g=F(5+t2*6);b=F(4+t2*4);
+        r=F(12+t2*10);g=F(8+t2*8);b=F(6+t2*5);
       } else {
         var t2=(t-0.5)/0.5;
-        r=F(16+t2*10);g=F(11+t2*7);b=F(8+t2*6);
+        r=F(22+t2*8);g=F(16+t2*6);b=F(11+t2*5);
       }
     }
     R(0,i*(GROUND_Y/bands),W,Math.ceil(GROUND_Y/bands)+1,"rgb("+r+","+g+","+b+")");
@@ -1548,8 +1652,10 @@ function drawSky(){
     ctx.globalAlpha=0.35;ctx.fillStyle="#eeccff";
     ctx.beginPath();ctx.arc(40,25,5,0,6.29);ctx.fill();
     ctx.globalAlpha=1;
+  } else if(level===3){
+    // Level 3 cave interior - ant farm / cross-section style
+    drawCaveCeiling();
   }
-  // Level 3: no sky objects (cave ceiling)
 
   // Clouds (level-appropriate, none in cave)
   if(level!==3){
@@ -2118,6 +2224,7 @@ function draw(){
   drawBigworms();drawDaggers();drawSpiders();drawGooDrops();
   if(level===3) drawTorches();
   drawRobot();drawParticles();
+  drawCaveOverlay();
 
   // Stomp flash
   if(stompFlash>0){
@@ -2127,13 +2234,77 @@ function draw(){
     ctx.globalAlpha=1;
   }
 
-  // Pit fall effect (Level 3 transition)
+  // Pit fall effect (Level 3 transition) - scrolling rocky shaft
   if(pitFallTimer>0){
-    var fallAlpha=pitFallTimer/LEVEL_3_TRANSITION_TIME;
-    ctx.globalAlpha=1-fallAlpha*0.5;
-    ctx.fillStyle="#000";
+    var fallProgress=1-pitFallTimer/LEVEL_3_TRANSITION_TIME;
+    // Dark shaft background
+    ctx.fillStyle="#0a0604";
     ctx.fillRect(0,0,W,H);
-    ctx.globalAlpha=1;
+    // Scrolling rocky walls on left and right
+    var scrollY=pitFallScroll;
+    ctx.fillStyle="#1a1008";
+    for(var wy=0;wy<H+40;wy+=20){
+      var ypos=((wy+scrollY)%H)-20;
+      // Left wall rocks
+      var lw=15+Math.sin(wy*0.3)*8+Math.cos(wy*0.17)*5;
+      ctx.beginPath();
+      ctx.moveTo(0,ypos);
+      ctx.lineTo(lw+Math.sin(wy*0.5)*4,ypos+5);
+      ctx.lineTo(lw+2+Math.cos(wy*0.4)*3,ypos+10);
+      ctx.lineTo(lw-2+Math.sin(wy*0.6)*5,ypos+15);
+      ctx.lineTo(lw+Math.cos(wy*0.3)*4,ypos+20);
+      ctx.lineTo(0,ypos+20);
+      ctx.fill();
+      // Right wall rocks
+      var rw=15+Math.cos(wy*0.25)*8+Math.sin(wy*0.19)*5;
+      ctx.beginPath();
+      ctx.moveTo(W,ypos);
+      ctx.lineTo(W-rw-Math.cos(wy*0.45)*4,ypos+5);
+      ctx.lineTo(W-rw-2-Math.sin(wy*0.35)*3,ypos+10);
+      ctx.lineTo(W-rw+2-Math.cos(wy*0.55)*5,ypos+15);
+      ctx.lineTo(W-rw-Math.sin(wy*0.28)*4,ypos+20);
+      ctx.lineTo(W,ypos+20);
+      ctx.fill();
+    }
+    // Darker rock edges
+    ctx.fillStyle="#0d0805";
+    for(var wy=0;wy<H+40;wy+=20){
+      var ypos=((wy+scrollY)%H)-20;
+      var lw=12+Math.sin(wy*0.3)*6;
+      R(0,ypos,lw,20,"#0d0805");
+      var rw=12+Math.cos(wy*0.25)*6;
+      R(W-rw,ypos,rw,20,"#0d0805");
+    }
+    // Falling rocks/debris particles
+    ctx.fillStyle="#3a2a18";
+    for(var ri=0;ri<15;ri++){
+      var seed=ri*127+17;
+      var rx=20+((seed*13)%((W-40)));
+      var ry=((scrollY*1.5+seed*37)%(H+20))-10;
+      var rs=2+((seed*7)%3);
+      R(rx,ry,rs,rs,"#3a2a18");
+    }
+    // Player silhouette falling
+    var px=W/2-6;
+    var py=H/2+Math.sin(fallProgress*6)*5;
+    ctx.fillStyle="#222";
+    R(px,py-8,12,12,"#222");
+    R(px+2,py+4,8,6,"#222");
+    R(px-1,py+10,5,4,"#222");
+    R(px+8,py+10,5,4,"#222");
+    // Vignette darkness at edges
+    var grad=ctx.createRadialGradient(W/2,H/2,30,W/2,H/2,H*0.7);
+    grad.addColorStop(0,"rgba(0,0,0,0)");
+    grad.addColorStop(1,"rgba(0,0,0,0.6)");
+    ctx.fillStyle=grad;
+    ctx.fillRect(0,0,W,H);
+    // Flash at bottom as approaching ground
+    if(fallProgress>0.8){
+      var flashAlpha=(fallProgress-0.8)*3;
+      ctx.globalAlpha=flashAlpha*0.4;ctx.fillStyle="#ff8844";
+      ctx.fillRect(0,0,W,H);
+      ctx.globalAlpha=1;
+    }
   }
 
   // Level transition banner
