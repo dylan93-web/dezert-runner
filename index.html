@@ -3035,8 +3035,15 @@ function submitScore(playerName,playerScore){
     headers:{"Content-Type":"application/json"},
     body:JSON.stringify({playerName:playerName.trim().toUpperCase(),score:playerScore,level:level})
   })
-    .then(function(r){return r.json();})
+    .then(function(r){
+      if(!r.ok){
+        console.error("Leaderboard HTTP error:",r.status,r.statusText);
+        throw new Error("HTTP "+r.status);
+      }
+      return r.json();
+    })
     .then(function(data){
+      console.log("Leaderboard response:",data);
       if(data.success){
         scoreSubmitted=true;
         lbSubmit.classList.add("ov-hidden");
@@ -3046,12 +3053,18 @@ function submitScore(playerName,playerScore){
         // Show server message (e.g. "You already have a higher score")
         lbStatus.textContent=data.message;
         lbStatus.className="ov-lb-status";
+      } else if(data.error){
+        console.error("Leaderboard error:",data.error);
+        lbStatus.textContent=data.error;
+        lbStatus.className="ov-lb-status error";
       } else {
+        console.error("Unexpected response format:",JSON.stringify(data));
         lbStatus.textContent="Error submitting";
         lbStatus.className="ov-lb-status error";
       }
     })
-    .catch(function(){
+    .catch(function(err){
+      console.error("Leaderboard fetch error:",err);
       lbStatus.textContent="Connection error";
       lbStatus.className="ov-lb-status error";
     });
