@@ -4794,11 +4794,12 @@ function drawInvincPickups(){
     var inp=invincPickups[i],sx=wxf(inp.x),sy=inp.y+Math.sin(inp.bob)*3;
     if(sx<-20||sx>W+20) continue;
     drawShadow(sx,GROUND_Y+1,5);
-    // Outer glow
+    // Outer glow (centered on logo which extends right)
+    var glowX=sx+4;
     ctx.globalAlpha=0.2+Math.sin(inp.bob*2)*0.1;ctx.fillStyle=C_INVINC_GLOW;
-    ctx.beginPath();ctx.arc(F(sx),F(sy),10,0,6.29);ctx.fill();
+    ctx.beginPath();ctx.arc(F(glowX),F(sy),12,0,6.29);ctx.fill();
     ctx.globalAlpha=0.15;ctx.fillStyle="#ffffff";
-    ctx.beginPath();ctx.arc(F(sx),F(sy),8,0,6.29);ctx.fill();
+    ctx.beginPath();ctx.arc(F(glowX),F(sy),10,0,6.29);ctx.fill();
     ctx.globalAlpha=1;
     // D logo from SVG - WIDE FLAT horizontal swoosh with 4-pointed star
     ctx.save();
@@ -5087,13 +5088,13 @@ function draw(){
   // FREQ MODE ACTIVATED message
   if(freqModeTimer>0){
     var msgAlpha=Math.min(1,freqModeTimer*2);
-    ctx.globalAlpha=msgAlpha*0.8;
-    ctx.fillStyle="#000";
-    ctx.fillRect(0,H/2-15,W,30);
     ctx.globalAlpha=msgAlpha;
     ctx.font="bold 10px 'Press Start 2P',monospace";
     ctx.textAlign="center";
     ctx.fillStyle="#ffcc00";
+    ctx.strokeStyle="#000";
+    ctx.lineWidth=3;
+    ctx.strokeText("FREQ MODE ACTIVATED",W/2,H/2+4);
     ctx.fillText("FREQ MODE ACTIVATED",W/2,H/2+4);
     ctx.textAlign="left";
     ctx.globalAlpha=1;
