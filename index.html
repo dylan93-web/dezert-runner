@@ -4800,28 +4800,29 @@ function drawInvincPickups(){
     ctx.globalAlpha=0.15;ctx.fillStyle="#ffffff";
     ctx.beginPath();ctx.arc(F(sx),F(sy),8,0,6.29);ctx.fill();
     ctx.globalAlpha=1;
-    // D logo shape - curved D with 4-pointed star
-    // 4-pointed star on the left
-    R(sx-7,sy-1,4,2,C_INVINC);  // horizontal
-    R(sx-6,sy-3,2,6,"#ffdd44"); // vertical
-    R(sx-6,sy-2,2,4,"#ffee88"); // center highlight
-    // Curved D shape
-    R(sx-2,sy-6,2,12,C_INVINC); // left edge of D
-    R(sx,sy-7,4,2,C_INVINC);    // top curve
-    R(sx+4,sy-6,2,2,"#ffdd44"); // top right
-    R(sx+5,sy-4,2,4,"#ffdd44"); // right curve upper
-    R(sx+5,sy,2,4,"#ffdd44");   // right curve lower
-    R(sx+4,sy+4,2,2,"#ffdd44"); // bottom right
-    R(sx,sy+5,4,2,C_INVINC);    // bottom curve
-    // Inner highlight
-    R(sx,sy-5,3,2,"#ffee88");
-    R(sx+3,sy-3,2,6,"#fff8cc");
+    // D logo - flat wide swoosh with 4-pointed diamond star
+    // 4-pointed diamond star on the left
+    R(sx-8,sy,2,2,C_INVINC);    // left point
+    R(sx-6,sy-2,2,2,C_INVINC);  // top point
+    R(sx-6,sy+2,2,2,C_INVINC);  // bottom point
+    R(sx-4,sy,2,2,C_INVINC);    // right point
+    R(sx-6,sy,2,2,"#ffee88");   // center
+    // Wide flat swoosh D shape
+    R(sx-2,sy-4,2,2,C_INVINC);  // top start
+    R(sx,sy-5,3,2,C_INVINC);    // top sweep out
+    R(sx+3,sy-4,3,2,"#ffdd44"); // top curve
+    R(sx+6,sy-3,2,2,"#ffdd44"); // upper right
+    R(sx+7,sy-1,2,3,"#ffee88"); // right edge
+    R(sx+6,sy+2,2,2,"#ffdd44"); // lower right
+    R(sx+3,sy+3,3,2,"#ffdd44"); // bottom curve
+    R(sx,sy+4,3,2,C_INVINC);    // bottom sweep
+    R(sx-2,sy+3,2,2,C_INVINC);  // bottom end
     // Sparkle
     var sparkle=Math.sin(inp.bob*3)>0.5;
     if(sparkle){
       ctx.globalAlpha=0.8;
-      R(sx-6,sy-4,2,2,"#ffffff");
-      R(sx+5,sy-2,2,2,"#ffffff");
+      R(sx-7,sy-1,2,2,"#ffffff");
+      R(sx+7,sy,2,2,"#ffffff");
       ctx.globalAlpha=1;
     }
   }
