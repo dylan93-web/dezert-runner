@@ -1905,6 +1905,7 @@ function checkBossCollision(){
       shakeTimer=0.5;playSfx("playerHit");
       spawnParticles(player.x,player.y-8,"#cc8866",15);
       buildHearts(player.lives,Math.max(MAX_LIVES,player.lives));
+      if(player.lives<=0){gameOver();return;}
       // Launch player away dramatically
       player.vx=(player.x<boss.x?-1:1)*180;
       player.vy=JUMP_VEL*1.2;
@@ -1933,6 +1934,7 @@ function checkBossCollision(){
       shakeTimer=0.35;playSfx("playerHit");
       spawnParticles(player.x,player.y-8,"#cc8866",12);
       buildHearts(player.lives,Math.max(MAX_LIVES,player.lives));
+      if(player.lives<=0){gameOver();return;}
       // Knockback away from worm
       player.vx=(player.x<boss.x?-1:1)*130;
       player.vy=JUMP_VEL*0.5;
@@ -1955,6 +1957,7 @@ function checkBossCollision(){
         shakeTimer=0.4;playSfx("playerHit");
         spawnParticles(player.x,player.y-8,"#ffaa66",15);
         buildHearts(player.lives,Math.max(MAX_LIVES,player.lives));
+        if(player.lives<=0){gameOver();return;}
         // Strong knockback in lunge direction
         player.vx=boss.lungeVx>0?150:-150;
         player.vy=JUMP_VEL*0.8;
