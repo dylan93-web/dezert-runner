@@ -144,7 +144,7 @@ canvas{image-rendering:pixelated;image-rendering:crisp-edges;display:block}
 <div id="fullscreen-prompt">
   <div class="fs-title">FREQ-2</div>
   <div class="fs-subtitle">Dezert Runner</div>
-  <button id="btn-fullscreen">PLAY FULLSCREEN</button>
+  <button id="btn-fullscreen">TAP TO PLAY</button>
   <div class="fs-hint">Tap to start</div>
 </div>
 <div id="rotate-prompt"><div class="icon">📱</div>Rotate your phone to<br>landscape mode to play</div>
@@ -993,7 +993,7 @@ var isEmbedded=window.self!==window.top;
 
 function enterFullscreen(){
   var elem=document.documentElement;
-  // Try fullscreen API first (works if iframe has allowfullscreen)
+  // Try fullscreen API (may fail in iframes)
   var fsPromise=null;
   if(elem.requestFullscreen){fsPromise=elem.requestFullscreen();}
   else if(elem.webkitRequestFullscreen){elem.webkitRequestFullscreen();fsPromise=Promise.resolve();}
@@ -1007,10 +1007,8 @@ function enterFullscreen(){
         screen.orientation.lock("landscape").catch(function(){});
       }
     }).catch(function(){
-      // Fullscreen failed (iframe without permission) - open in new tab
-      if(isEmbedded){
-        window.open(window.location.href,"_blank");
-      }
+      // Fullscreen blocked (iframe) - just dismiss and play
+      fullscreenPrompt.classList.remove("visible");
     });
   } else {
     fullscreenPrompt.classList.remove("visible");
