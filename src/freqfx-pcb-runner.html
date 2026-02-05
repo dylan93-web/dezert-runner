@@ -3002,6 +3002,10 @@ function submitScore(playerName,playerScore){
         lbSubmit.classList.add("ov-hidden");
         lbStatus.textContent="Score submitted!";
         lbStatus.className="ov-lb-status";
+      } else if(data.message){
+        // Show server message (e.g. "You already have a higher score")
+        lbStatus.textContent=data.message;
+        lbStatus.className="ov-lb-status";
       } else {
         lbStatus.textContent="Error submitting";
         lbStatus.className="ov-lb-status error";
