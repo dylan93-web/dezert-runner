@@ -1100,7 +1100,7 @@ var desktopHelp=
   "<b>PICKUPS:</b>\n"+
   "Blue POWERcells  =  refill dash + boost\n"+
   "Pink hearts  =  +1 life\n"+
-  "Golden star  =  INVINCIBLE (rare!)\n\n"+
+  "Golden D  =  FREQ MODE (rare!)\n\n"+
   "<b>TIP:</b> Stomp enemies from above!\n"+
   "Reach 500 dist for LEVEL 2 — night desert!";
 var mobileHelp=
@@ -1112,7 +1112,7 @@ var mobileHelp=
   "<b>PICKUPS:</b>\n"+
   "Blue POWERcells  =  refill dash + boost\n"+
   "Pink hearts  =  +1 life\n"+
-  "Golden star  =  INVINCIBLE (rare!)\n\n"+
+  "Golden D  =  FREQ MODE (rare!)\n\n"+
   "<b>TIP:</b> Stomp enemies from above!\n"+
   "Reach 500 dist for LEVEL 2 — night desert!";
 howtoText.innerHTML=isMobile?mobileHelp:desktopHelp;
@@ -1262,6 +1262,10 @@ var LEVEL_3_GRACE_TIME=2.5; // Total grace: pit fall + 0.5s after landing
 
 // Invincibility once per level gate
 var invincSpawned={1:false,2:false,3:false};
+
+// FREQ mode message timer
+var freqModeTimer=0;
+var FREQ_MODE_MSG_TIME=2.0;
 
 // Stomp flash effect + cooldown
 var stompFlash=0;
@@ -1497,7 +1501,7 @@ function resetGame(){
   heartPickups=[];powerCells=[];invincPickups=[];sandworms=[];
   score=0;maxX=60;gameTime=0;spawnTimer=SAFE_START;shakeTimer=0;lastGenX=0;lastPowerX=0;lastHeartX=0;lastInvincX=0;
   stompFlash=0;stompCooldown=0;
-  level=1;levelTransitionTimer=0;spawnPauseTimer=0;pitFallTimer=0;pitFallScroll=0;level3GraceTimer=0;
+  level=1;levelTransitionTimer=0;freqModeTimer=0;spawnPauseTimer=0;pitFallTimer=0;pitFallScroll=0;level3GraceTimer=0;
   invincSpawned={1:false,2:false,3:false};
   wormTimer=WORM_MIN_INTERVAL+Math.random()*(WORM_MAX_INTERVAL-WORM_MIN_INTERVAL);
   flierTimer=5+Math.random()*3;
@@ -2219,6 +2223,7 @@ function update(dt){
   if(stompFlash>0) stompFlash=Math.max(0,stompFlash-dt);
   if(stompCooldown>0) stompCooldown=Math.max(0,stompCooldown-dt);
   if(levelTransitionTimer>0) levelTransitionTimer=Math.max(0,levelTransitionTimer-dt);
+  if(freqModeTimer>0) freqModeTimer=Math.max(0,freqModeTimer-dt);
   if(spawnPauseTimer>0&&!boss.active) spawnPauseTimer=Math.max(0,spawnPauseTimer-dt);
   if(player.jumpBufferTimer>0) player.jumpBufferTimer=Math.max(0,player.jumpBufferTimer-dt*1000);
   if(player.coyoteTimer>0) player.coyoteTimer=Math.max(0,player.coyoteTimer-dt*1000);
@@ -2875,6 +2880,7 @@ function update(dt){
     var inpY=inp.y+Math.sin(inp.bob)*3;
     if(rectsOverlap(pr.x,pr.y,pr.w,pr.h,inp.x-6,inpY-6,12,12)){
       player.invincTimer=INVINC_DURATION;
+      freqModeTimer=FREQ_MODE_MSG_TIME;
       playSfx("pickupInvinc");
       spawnParticles(inp.x,inpY,C_INVINC,16);
       spawnParticles(inp.x,inpY,"#ffffff",8);
@@ -4794,18 +4800,28 @@ function drawInvincPickups(){
     ctx.globalAlpha=0.15;ctx.fillStyle="#ffffff";
     ctx.beginPath();ctx.arc(F(sx),F(sy),8,0,6.29);ctx.fill();
     ctx.globalAlpha=1;
-    // Star shape
-    R(sx-1,sy-7,2,14,C_INVINC);
-    R(sx-7,sy-1,14,2,C_INVINC);
-    R(sx-4,sy-4,8,8,"#ffdd44");
-    R(sx-3,sy-3,6,6,"#ffee66");
-    R(sx-2,sy-2,4,4,"#fff8aa");
+    // D logo shape - curved D with 4-pointed star
+    // 4-pointed star on the left
+    R(sx-7,sy-1,4,2,C_INVINC);  // horizontal
+    R(sx-6,sy-3,2,6,"#ffdd44"); // vertical
+    R(sx-6,sy-2,2,4,"#ffee88"); // center highlight
+    // Curved D shape
+    R(sx-2,sy-6,2,12,C_INVINC); // left edge of D
+    R(sx,sy-7,4,2,C_INVINC);    // top curve
+    R(sx+4,sy-6,2,2,"#ffdd44"); // top right
+    R(sx+5,sy-4,2,4,"#ffdd44"); // right curve upper
+    R(sx+5,sy,2,4,"#ffdd44");   // right curve lower
+    R(sx+4,sy+4,2,2,"#ffdd44"); // bottom right
+    R(sx,sy+5,4,2,C_INVINC);    // bottom curve
+    // Inner highlight
+    R(sx,sy-5,3,2,"#ffee88");
+    R(sx+3,sy-3,2,6,"#fff8cc");
     // Sparkle
     var sparkle=Math.sin(inp.bob*3)>0.5;
     if(sparkle){
       ctx.globalAlpha=0.8;
-      R(sx-1,sy-9,2,2,"#ffffff");
-      R(sx+6,sy-1,2,2,"#ffffff");
+      R(sx-6,sy-4,2,2,"#ffffff");
+      R(sx+5,sy-2,2,2,"#ffffff");
       ctx.globalAlpha=1;
     }
   }
@@ -5040,6 +5056,21 @@ function draw(){
       ctx.font="8px monospace";
       ctx.fillText("SAND CAVE - ENDLESS",W/2,H/2+10);
     }
+    ctx.textAlign="left";
+    ctx.globalAlpha=1;
+  }
+
+  // FREQ MODE ACTIVATED message
+  if(freqModeTimer>0){
+    var msgAlpha=Math.min(1,freqModeTimer*2);
+    ctx.globalAlpha=msgAlpha*0.8;
+    ctx.fillStyle="#000";
+    ctx.fillRect(0,H/2-15,W,30);
+    ctx.globalAlpha=msgAlpha;
+    ctx.font="bold 10px 'Press Start 2P',monospace";
+    ctx.textAlign="center";
+    ctx.fillStyle="#ffcc00";
+    ctx.fillText("FREQ MODE ACTIVATED",W/2,H/2+4);
     ctx.textAlign="left";
     ctx.globalAlpha=1;
   }
