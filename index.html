@@ -2877,6 +2877,7 @@ function update(dt){
       player.lives=Math.min(LIVES_CAP,player.lives+1);
       buildHearts(player.lives,Math.max(MAX_LIVES,player.lives));
       score+=SCORE_ITEM_PICKUP;
+      spawnScorePopup(hp.x,hpY-10,SCORE_ITEM_PICKUP,1);
       playSfx("pickupHeart");
       spawnParticles(hp.x,hpY,C_HEART_PU,10);
       heartPickups.splice(hi,1);
@@ -2892,6 +2893,7 @@ function update(dt){
       player.dashCharges=Math.min(MAX_DASH_CHARGES,player.dashCharges+1);
       buildDashPips(player.dashCharges,MAX_DASH_CHARGES);
       score+=SCORE_ITEM_PICKUP;
+      spawnScorePopup(pw.x,pwY-10,SCORE_ITEM_PICKUP,1);
       playSfx("pickupPower");
       spawnParticles(pw.x,pwY,C_POWER,12);
       powerCells.splice(pc,1);
@@ -2907,6 +2909,7 @@ function update(dt){
       player.invincTimer=INVINC_DURATION;
       freqModeTimer=FREQ_MODE_MSG_TIME;
       score+=SCORE_ITEM_PICKUP;
+      spawnScorePopup(inp.x,inpY-10,SCORE_ITEM_PICKUP,1);
       playSfx("pickupInvinc");
       spawnParticles(inp.x,inpY,C_INVINC,16);
       spawnParticles(inp.x,inpY,"#ffffff",8);
