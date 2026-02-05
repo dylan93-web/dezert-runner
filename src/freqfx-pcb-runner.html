@@ -11,6 +11,15 @@ html,body{width:100%;height:100%;overflow:hidden;background:#1a1020;display:flex
 #wrap{position:relative;display:flex;align-items:center;justify-content:center}
 canvas{image-rendering:pixelated;image-rendering:crisp-edges;display:block}
 .mobile-btn{display:none;position:fixed;z-index:10;touch-action:manipulation;border:none;font:bold 18px monospace;border-radius:12px;opacity:0.9}
+/* Fullscreen prompt for mobile */
+#fullscreen-prompt{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:linear-gradient(180deg,#1a1020 0%,#2a1530 50%,#1a1020 100%);z-index:150;flex-direction:column;align-items:center;justify-content:center;color:#ffcc88;font-family:'Press Start 2P',monospace;text-align:center;padding:20px}
+#fullscreen-prompt.visible{display:flex}
+.fs-title{font-size:32px;color:#ffcc88;letter-spacing:4px;text-shadow:0 0 20px rgba(255,200,160,0.5);margin-bottom:8px}
+.fs-subtitle{font-size:14px;color:#aa8877;letter-spacing:3px;margin-bottom:30px}
+#btn-fullscreen{padding:20px 40px;font:bold 18px 'Press Start 2P',monospace;color:#ffcc88;background:rgba(255,200,180,0.1);border:2px solid rgba(255,200,180,0.4);border-radius:8px;cursor:pointer;animation:pulse-btn 2s ease-in-out infinite}
+#btn-fullscreen:active{background:rgba(255,200,180,0.3);transform:scale(0.98)}
+.fs-hint{font-size:10px;color:#665544;margin-top:20px;letter-spacing:1px}
+@keyframes pulse-btn{0%,100%{box-shadow:0 0 10px rgba(255,200,160,0.3)}50%{box-shadow:0 0 25px rgba(255,200,160,0.6)}}
 /* Rotate prompt for portrait mode on mobile */
 #rotate-prompt{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(10,5,15,0.95);z-index:100;flex-direction:column;align-items:center;justify-content:center;color:#ffcc88;font:bold 18px monospace;text-align:center;padding:20px}
 #rotate-prompt .icon{font-size:48px;margin-bottom:16px;animation:rotate-hint 1.5s ease-in-out infinite}
@@ -132,6 +141,12 @@ canvas{image-rendering:pixelated;image-rendering:crisp-edges;display:block}
 </style>
 </head>
 <body>
+<div id="fullscreen-prompt">
+  <div class="fs-title">FREQ-2</div>
+  <div class="fs-subtitle">Dezert Runner</div>
+  <button id="btn-fullscreen">TAP TO PLAY</button>
+  <div class="fs-hint">Best in fullscreen</div>
+</div>
 <div id="rotate-prompt"><div class="icon">📱</div>Rotate your phone to<br>landscape mode to play</div>
 <div id="joystick-zone"><div id="joystick-base"><div id="joystick-knob"></div></div></div>
 <button id="mobile-pause">| |</button>
@@ -971,6 +986,47 @@ var overlay=document.getElementById("overlay");
 canvas.width=W;canvas.height=H;
 
 var isMobile="ontouchstart"in window||navigator.maxTouchPoints>0;
+
+// Fullscreen handling for mobile
+var fullscreenPrompt=document.getElementById("fullscreen-prompt");
+var isFullscreen=false;
+
+function enterFullscreen(){
+  var elem=document.documentElement;
+  if(elem.requestFullscreen){elem.requestFullscreen();}
+  else if(elem.webkitRequestFullscreen){elem.webkitRequestFullscreen();}
+  else if(elem.msRequestFullscreen){elem.msRequestFullscreen();}
+  fullscreenPrompt.classList.remove("visible");
+  isFullscreen=true;
+  // Lock to landscape if supported
+  if(screen.orientation&&screen.orientation.lock){
+    screen.orientation.lock("landscape").catch(function(){});
+  }
+}
+
+document.getElementById("btn-fullscreen").addEventListener("click",enterFullscreen);
+
+// Show fullscreen prompt on mobile (when embedded)
+if(isMobile&&window.self!==window.top){
+  fullscreenPrompt.classList.add("visible");
+} else if(isMobile){
+  // Direct visit on mobile - still offer fullscreen
+  fullscreenPrompt.classList.add("visible");
+}
+
+// Handle fullscreen exit
+document.addEventListener("fullscreenchange",function(){
+  if(!document.fullscreenElement&&!document.webkitFullscreenElement){
+    isFullscreen=false;
+    if(isMobile) fullscreenPrompt.classList.add("visible");
+  }
+});
+document.addEventListener("webkitfullscreenchange",function(){
+  if(!document.webkitFullscreenElement){
+    isFullscreen=false;
+    if(isMobile) fullscreenPrompt.classList.add("visible");
+  }
+});
 
 // DOM refs
 var scrTitle=document.getElementById("scr-title");
