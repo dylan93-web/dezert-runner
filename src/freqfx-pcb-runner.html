@@ -5034,7 +5034,14 @@ function loop(ts){
   if(!lastTime) lastTime=ts;
   var dt=Math.min((ts-lastTime)/1000,0.05);
   lastTime=ts;
-  update(dt);draw();
+  try{
+    // Failsafe: if playing and no lives, force game over
+    if(state==="playing"&&player.lives<=0){gameOver();}
+    update(dt);draw();
+  }catch(e){
+    console.error("Game error:",e);
+    if(state==="playing"){gameOver();}
+  }
 }
 
 initWorld();showScreen("title");requestAnimationFrame(loop);
