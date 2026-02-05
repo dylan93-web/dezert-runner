@@ -4824,20 +4824,20 @@ function drawInvincPickups(){
     ctx.quadraticCurveTo(12,0,10,1);
     ctx.quadraticCurveTo(9,0,10,-1);
     ctx.fill();
-    // 4-pointed star (to the left)
-    var stX=-7;
+    // 4-pointed star (inside the D opening)
+    var stX=0;
     ctx.fillStyle=C_INVINC;
     ctx.beginPath();
-    ctx.moveTo(stX-4,0);   // left point
-    ctx.lineTo(stX,-4);    // top point
-    ctx.lineTo(stX+3,0);   // right point
-    ctx.lineTo(stX,4);     // bottom point
+    ctx.moveTo(stX-3,0);   // left point
+    ctx.lineTo(stX,-3);    // top point
+    ctx.lineTo(stX+2,0);   // right point
+    ctx.lineTo(stX,3);     // bottom point
     ctx.closePath();
     ctx.fill();
     // Star highlight
     ctx.fillStyle="#ffee88";
     ctx.beginPath();
-    ctx.arc(stX,0,1.5,0,6.29);
+    ctx.arc(stX,0,1,0,6.29);
     ctx.fill();
     ctx.restore();
     // Sparkle
