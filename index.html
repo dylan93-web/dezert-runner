@@ -1249,6 +1249,9 @@ var bestScore=parseInt(localStorage.getItem("freqfx_best"))||0;
 // Scoring: distance (1:1) + enemy kills (10pts) + item pickups (5pts)
 var SCORE_ENEMY_KILL=10;
 var SCORE_ITEM_PICKUP=5;
+// Score popups and combo system
+var scorePopups=[];
+var stompCombo=0; // Resets when player touches ground
 var gameTime=0,spawnTimer=0,wormTimer=0,flierTimer=0,droidTimer=0;
 var lastTime=0,shakeTimer=0,shimmerOffset=0;
 var held={left:false,right:false,jump:false,dash:false,down:false};
@@ -1501,9 +1504,9 @@ function resetGame(){
   cam.x=0;enemies=[];projectiles=[];platforms=[];terrainDunes=[];particles=[];
   fliers=[];drops=[];droids=[];lasers=[];
   bigworms=[];daggers=[];spiders=[];gooDrops=[];torches=[];
-  heartPickups=[];powerCells=[];invincPickups=[];sandworms=[];
+  heartPickups=[];powerCells=[];invincPickups=[];sandworms=[];scorePopups=[];
   score=0;distance=0;maxX=60;gameTime=0;spawnTimer=SAFE_START;shakeTimer=0;lastGenX=0;lastPowerX=0;lastHeartX=0;lastInvincX=0;
-  stompFlash=0;stompCooldown=0;
+  stompFlash=0;stompCooldown=0;stompCombo=0;
   level=1;levelTransitionTimer=0;freqModeTimer=0;spawnPauseTimer=0;pitFallTimer=0;pitFallScroll=0;level3GraceTimer=0;
   invincSpawned={1:false,2:false,3:false};
   wormTimer=WORM_MIN_INTERVAL+Math.random()*(WORM_MAX_INTERVAL-WORM_MIN_INTERVAL);
@@ -1602,6 +1605,13 @@ function spawnParticles(x,y,color,count){
     particles.push({x:x,y:y,vx:(Math.random()-0.5)*80,vy:-Math.random()*60,
       life:0.3+Math.random()*0.3,color:color,size:1+Math.floor(Math.random()*2)});
   }
+}
+
+function spawnScorePopup(x,y,value,combo){
+  var text="+"+value;
+  var color="#ffcc00";
+  if(combo>1){text="+"+value+" x"+combo;color="#ff8844";}
+  scorePopups.push({x:x,y:y,text:text,timer:1.2,color:color});
 }
 
 function rectsOverlap(ax,ay,aw,ah,bx,by,bw,bh){
@@ -2198,7 +2208,11 @@ function checkStomp(enemyTop,enemyLeft,enemyRight){
 }
 
 function doStomp(entityX,entityY,entityTop,scoreBonus){
-  score+=scoreBonus;
+  stompCombo++;
+  var multiplier=Math.min(stompCombo,5); // Cap at 5x
+  var finalScore=scoreBonus*multiplier;
+  score+=finalScore;
+  spawnScorePopup(entityX,entityY-10,scoreBonus,multiplier);
   player.vy=STOMP_BOUNCE_VEL;
   player.y=entityTop-1;
   player.onGround=false;
@@ -2358,7 +2372,7 @@ function update(dt){
   if(player.y>=GROUND_Y){player.y=GROUND_Y;player.vy=0;onSomething=true;}
 
   if(onSomething){
-    if(!player.onGround){player.coyoteTimer=COYOTE_MS;spawnDust(player.x,player.y,3);playSfx("land");}
+    if(!player.onGround){player.coyoteTimer=COYOTE_MS;spawnDust(player.x,player.y,3);playSfx("land");stompCombo=0;}
     player.onGround=true;
   } else {
     if(player.onGround&&player.vy>=0) player.coyoteTimer=COYOTE_MS;
@@ -2548,6 +2562,7 @@ function update(dt){
       if(hasInvinc){
         // Invincible player destroys enemy on contact
         score+=STOMP_SHIP_SCORE;
+        spawnScorePopup(en.x,en.y-10,STOMP_SHIP_SCORE,1);
         spawnParticles(en.x,en.y,C_INVINC,8);
         spawnParticles(en.x,en.y,"#ffffff",4);
         enemies.splice(i,1);continue;
@@ -2603,6 +2618,7 @@ function update(dt){
       if(rectsOverlap(pr.x,pr.y,pr.w,pr.h,wmLeft,wmTop,wm.length,10)){
         if(hasInvinc){
           score+=STOMP_WORM_SCORE;
+          spawnScorePopup(wm.x,GROUND_Y-15,STOMP_WORM_SCORE,1);
           spawnParticles(wm.x,GROUND_Y-4,C_INVINC,10);
           spawnParticles(wm.x,GROUND_Y-4,"#ffffff",5);
           sandworms.splice(wi,1);continue;
@@ -2647,6 +2663,7 @@ function update(dt){
     if(rectsOverlap(pr.x,pr.y,pr.w,pr.h,fx2,fy2,fw2,fh2)){
       if(hasInvinc){
         score+=STOMP_FLIER_SCORE;
+        spawnScorePopup(fl.x,fl.y-10,STOMP_FLIER_SCORE,1);
         spawnParticles(fl.x,fl.y,C_INVINC,8);
         spawnParticles(fl.x,fl.y,"#ffffff",4);
         fliers.splice(fi,1);continue;
@@ -2711,6 +2728,7 @@ function update(dt){
     if(rectsOverlap(pr.x,pr.y,pr.w,pr.h,drx2,dry2,drw2,drh2)){
       if(hasInvinc){
         score+=STOMP_DROID_SCORE;
+        spawnScorePopup(drd.x,drd.y-16,STOMP_DROID_SCORE,1);
         spawnParticles(drd.x,drd.y-6,C_INVINC,8);
         spawnParticles(drd.x,drd.y-6,"#ffffff",4);
         droids.splice(dri,1);continue;
@@ -2768,6 +2786,7 @@ function update(dt){
     if(rectsOverlap(pr.x,pr.y,pr.w,pr.h,bwLeft,bwTop,bw.length,14)){
       if(hasInvinc){
         score+=STOMP_BIGWORM_SCORE;
+        spawnScorePopup(bw.x,GROUND_Y-20,STOMP_BIGWORM_SCORE,1);
         spawnParticles(bw.x,GROUND_Y-6,C_INVINC,10);
         bigworms.splice(bwi,1);continue;
       } else if(!isInvuln){
@@ -2820,6 +2839,7 @@ function update(dt){
     if(rectsOverlap(pr.x,pr.y,pr.w,pr.h,spx2,spy2,spw2,sph2)){
       if(hasInvinc){
         score+=STOMP_SPIDER_SCORE;
+        spawnScorePopup(sp.x,sp.y-10,STOMP_SPIDER_SCORE,1);
         spawnParticles(sp.x,sp.y,C_INVINC,8);
         spiders.splice(spi,1);continue;
       } else if(!isInvuln){
@@ -2913,6 +2933,14 @@ function update(dt){
     var pt=particles[m];
     pt.x+=pt.vx*dt;pt.y+=pt.vy*dt;pt.vy+=150*dt;pt.life-=dt;
     if(pt.life<=0) particles.splice(m,1);
+  }
+
+  // Score popups float up and fade
+  for(var sp=scorePopups.length-1;sp>=0;sp--){
+    var pop=scorePopups[sp];
+    pop.y-=30*dt; // Float up
+    pop.timer-=dt;
+    if(pop.timer<=0) scorePopups.splice(sp,1);
   }
 
   for(var ss=0;ss<sandSpecs.length;ss++){
@@ -4914,6 +4942,22 @@ function drawParticles(){
   ctx.globalAlpha=1;
 }
 
+function drawScorePopups(){
+  ctx.font="bold 8px 'Press Start 2P',monospace";
+  ctx.textAlign="center";
+  for(var i=0;i<scorePopups.length;i++){
+    var pop=scorePopups[i];
+    var alpha=Math.min(1,pop.timer*2);
+    ctx.globalAlpha=alpha;
+    ctx.fillStyle="#000";
+    ctx.fillText(pop.text,wxf(pop.x)+1,pop.y+1);
+    ctx.fillStyle=pop.color;
+    ctx.fillText(pop.text,wxf(pop.x),pop.y);
+  }
+  ctx.globalAlpha=1;
+  ctx.textAlign="left";
+}
+
 function draw(){
   ctx.save();
   if(shakeTimer>0) ctx.translate(F((Math.random()-0.5)*4),F((Math.random()-0.5)*4));
@@ -4926,7 +4970,7 @@ function draw(){
   drawBigworms();drawDaggers();drawSpiders();drawGooDrops();
   if(level===3) drawTorches();
   drawBoss();drawBossProjectiles();drawPlayerLasers();
-  drawRobot();drawParticles();
+  drawRobot();drawParticles();drawScorePopups();
   drawCaveOverlay();
 
   // Stomp flash
