@@ -182,6 +182,7 @@ canvas{image-rendering:pixelated;image-rendering:crisp-edges;display:block}
   <div id="dom-hud">
     <div id="hud-left">
       <div id="hud-hearts"></div>
+      <div id="hud-blueprints" style="display:none;font-size:16px;color:#44ffaa;letter-spacing:2px;text-shadow:2px 2px 0 #000,0 0 8px rgba(68,255,170,0.4)">0/5</div>
     </div>
     <div id="hud-center">DIST: 0</div>
     <div id="hud-right">
@@ -363,6 +364,10 @@ var INVINC_MIN_DIST=500;
 var INVINC_DURATION=7;
 var INVINC_SCALE=1.4;
 
+// Blueprint fragments (Level 4)
+var BLUEPRINT_MIN_DIST=400;
+var BLUEPRINT_REQUIRED=5;
+
 // Sandworm
 var WORM_TELEGRAPH=0.6;
 var WORM_SPEED=90;
@@ -465,6 +470,8 @@ var bgMusic=null;
 var level1Music=null;
 var level2Music=null;
 var level3Music=null;
+var level4Music=null;
+var level5Music=null;
 var currentMusicLevel=0;
 
 function initAudio(){
@@ -482,6 +489,12 @@ function initAudio(){
     level3Music=new Audio("audio/level3.wav");
     level3Music.loop=true;
     level3Music.volume=musicVolume;
+    level4Music=new Audio("audio/level4.wav");
+    level4Music.loop=true;
+    level4Music.volume=musicVolume;
+    level5Music=new Audio("audio/level5.wav");
+    level5Music.loop=true;
+    level5Music.volume=musicVolume;
   }catch(e){console.log("Audio not supported");}
 }
 
@@ -496,11 +509,18 @@ function playLevelMusic(lvl){
     level2Music.currentTime=0;
     level2Music.play().catch(function(){});
     currentMusicLevel=2;
-  } else if((lvl===3||lvl===4)&&level3Music){
-    // Level 4 uses Level 3 music for now (Forge Tunnels)
+  } else if(lvl===3&&level3Music){
     level3Music.currentTime=0;
     level3Music.play().catch(function(){});
-    currentMusicLevel=lvl;
+    currentMusicLevel=3;
+  } else if(lvl===4&&level4Music){
+    level4Music.currentTime=0;
+    level4Music.play().catch(function(){});
+    currentMusicLevel=4;
+  } else if(lvl===5&&level5Music){
+    level5Music.currentTime=0;
+    level5Music.play().catch(function(){});
+    currentMusicLevel=5;
   }
 }
 
@@ -508,6 +528,8 @@ function stopLevelMusic(){
   if(level1Music){level1Music.pause();level1Music.currentTime=0;}
   if(level2Music){level2Music.pause();level2Music.currentTime=0;}
   if(level3Music){level3Music.pause();level3Music.currentTime=0;}
+  if(level4Music){level4Music.pause();level4Music.currentTime=0;}
+  if(level5Music){level5Music.pause();level5Music.currentTime=0;}
   currentMusicLevel=0;
 }
 
@@ -1006,6 +1028,8 @@ var C2_DROID_EYE="#ffff44";
 // Invincibility power-up colors
 var C_INVINC="#ffcc00";
 var C_INVINC_GLOW="rgba(255,200,0,0.4)";
+var C_BLUEPRINT="#44ffaa";
+var C_BLUEPRINT_GLOW="rgba(68,255,170,0.3)";
 
 // Level 3 cave colors
 var C3_DUNE_FAR="#2a2018";
@@ -1030,6 +1054,36 @@ var C4_GROUND="#251008";
 var C4_GROUND_DARK="#180a04";
 var C4_GROUND_DEEPER="#0c0400";
 var C4_GROUND_LINE="#3a1c0c";
+
+// Level 5 Echo Guild Labs colors (cold industrial blue-gray, outside again)
+var C5_GROUND="#2a3040";
+var C5_GROUND_DARK="#1e2430";
+var C5_GROUND_DEEPER="#141a24";
+var C5_GROUND_LINE="#3a4555";
+var C5_DUNE_FAR="#2a3548";
+var C5_DUNE_MID="#243040";
+var C5_DUNE_NEAR="#1e2838";
+var C5_TDUNE_BASE="#283040";
+var C5_TDUNE_INNER="#303848";
+var C5_TDUNE_HIGHLIGHT="#405060";
+var C5_TDUNE_SHADOW="#141a24";
+var C5_TDUNE_CREST="#384858";
+var C5_TDUNE_EDGE="#101820";
+var C5_SAND_SPEC="#3a4858";
+var C5_SAND_DARK="#1e2838";
+
+// Echo Bot colors (corrupted FREQ-2 copies)
+var C_ECHO="#556688";
+var C_ECHO_DARK="#3a4a66";
+var C_ECHO_LIGHT="#7788aa";
+var C_ECHO_VISOR="#88ff44";
+var C_ECHO_CORE="#66cc33";
+
+// Patrol Copter colors
+var C_COPTER="#445566";
+var C_COPTER_DARK="#334455";
+var C_COPTER_LIGHT="#667788";
+var C_SPOTLIGHT="#ffeeaa";
 
 // Level 3 enemy colors
 var C_BIGWORM="#6a4030";
@@ -1124,6 +1178,7 @@ var hudHearts=document.getElementById("hud-hearts");
 var hudCenter=document.getElementById("hud-center");
 var hudHi=document.getElementById("hud-hi");
 var hudLevel=document.getElementById("hud-level");
+var hudBlueprints=document.getElementById("hud-blueprints");
 var hudDash=document.getElementById("hud-dash");
 var hudDashLabel=document.getElementById("hud-dash-label");
 var hudDashCharges=document.getElementById("hud-dash-charges");
@@ -1168,8 +1223,11 @@ var desktopHelp=
   "Blue POWERcells  =  refill dash + boost\n"+
   "Pink hearts  =  +1 life\n"+
   "Golden D  =  FREQ MODE (rare!)\n\n"+
-  "<b>TIP:</b> Stomp enemies for extra points!\n"+
-  "LEVEL 2 at 500 dist | LEVEL 3 at 1000 dist";
+  "<b>TIP:</b> Stomp enemies for extra points!\n\n"+
+  "<b>LEVELS:</b>\n"+
+  "1. Desert  |  2. Night Desert\n"+
+  "3. Sand Cave  |  4. Forge Tunnels\n"+
+  "5. Echo Guild Labs";
 var mobileHelp=
   "You are a warrior robot in the desert.\n"+
   "Run forward, dodge enemies, collect energy!\n\n"+
@@ -1180,8 +1238,11 @@ var mobileHelp=
   "Blue POWERcells  =  refill dash + boost\n"+
   "Pink hearts  =  +1 life\n"+
   "Golden D  =  FREQ MODE (rare!)\n\n"+
-  "<b>TIP:</b> Stomp enemies for extra points!\n"+
-  "LEVEL 2 at 500 dist | LEVEL 3 at 1000 dist";
+  "<b>TIP:</b> Stomp enemies for extra points!\n\n"+
+  "<b>LEVELS:</b>\n"+
+  "1. Desert  |  2. Night Desert\n"+
+  "3. Sand Cave  |  4. Forge Tunnels\n"+
+  "5. Echo Guild Labs";
 howtoText.innerHTML=isMobile?mobileHelp:desktopHelp;
 pauseHint.textContent=isMobile?"Tap RESUME":"ENTER = RESUME";
 
@@ -1305,7 +1366,7 @@ var fliers=[],drops=[],droids=[],lasers=[];
 var terrainDunes=[];
 var dunesFar=[],dunesMid=[],dunesClose=[];
 var sandSpecs=[],props=[],glowDomes=[];
-var heartPickups=[],powerCells=[],invincPickups=[];
+var heartPickups=[],powerCells=[],invincPickups=[],blueprintFragments=[];
 var sandworms=[];
 var bigworms=[],daggers=[];
 var spiders=[],gooDrops=[];
@@ -1322,7 +1383,7 @@ var stompCombo=0; // Resets when player touches ground
 var gameTime=0,spawnTimer=0,wormTimer=0,flierTimer=0,droidTimer=0;
 var lastTime=0,shakeTimer=0,shimmerOffset=0;
 var held={left:false,right:false,jump:false,dash:false,down:false};
-var lastGenX=0,lastPowerX=0,lastHeartX=0,lastInvincX=0;
+var lastGenX=0,lastPowerX=0,lastHeartX=0,lastInvincX=0,lastBlueprintX=0;
 
 // Level system
 var level=1;
@@ -1331,11 +1392,22 @@ var spawnPauseTimer=0;
 var pitFallTimer=0,pitFallScroll=0;
 var bigwormTimer=0,spiderTimer=0,drillbotTimer=0;
 var drillbots=[]; // Level 4 drill robots
+var echoBots=[]; // Level 5 Echo Bot enemies
+var echoBotTimer=0;
+var ECHO_SPEED=55;
+var ECHO_FOLLOW_SPEED=65;
+var STOMP_ECHO_SCORE=15;
+var patrolCopters=[]; // Level 5 Patrol Copter enemies
+var copterTimer=0;
+var COPTER_SPEED=50;
+var COPTER_SPOT_WIDTH=40;
+var COPTER_DETECT_TIME=0.5;
+var COPTER_FIRE_COOLDOWN=0.7;
 var level3GraceTimer=0; // Invuln grace period during L3 transition
 var LEVEL_3_GRACE_TIME=2.5; // Total grace: pit fall + 0.5s after landing
 
 // Invincibility once per level gate
-var invincSpawned={1:false,2:false,3:false,4:false};
+var invincSpawned={1:false,2:false,3:false,4:false,5:false};
 
 // === CUTSCENE SYSTEM ===
 var cutsceneActive=false;
@@ -1378,6 +1450,7 @@ var dialogueSpeaker="";
 var dialogueCharIndex=0;
 var dialogueCharTimer=0;
 var dialogueWaitingForContinue=false;
+var dialogueDismissCallback=null; // Called when player dismisses current dialogue
 var DIALOGUE_CHAR_SPEED=0.04; // seconds per character
 
 // Dez NPC for cutscene
@@ -1389,6 +1462,10 @@ var DEZ_SHOOT_COOLDOWN=0.25;
 
 // Level 4 constants
 var LEVEL_4_THRESHOLD=1500; // Level 3 ends at 500 distance within it (1000+500)
+var blueprintCount=0;
+var level4DistanceStart=0;
+var blueprintHintTimer=0;
+var blueprintHintShown=false;
 
 // FREQ mode message timer
 var freqModeTimer=0;
@@ -1609,6 +1686,18 @@ function generateWorld(upToX){
       invincPickups.push({x:invX,y:invY,bob:Math.random()*6.28});
       lastInvincX=invX;
     }
+    // Level 4: spawn blueprint fragments on platforms/ground
+    if((level===4||level===5)&&Math.random()<0.18&&(segStart-lastBlueprintX)>BLUEPRINT_MIN_DIST){
+      var bpX=segStart+20+Math.random()*50;
+      var bpY=groundYAt(bpX)-12;
+      // Try to place on a nearby platform instead
+      for(var pi=platforms.length-1;pi>=0&&pi>=platforms.length-5;pi--){
+        var pp=platforms[pi];
+        if(Math.abs(pp.x+pp.w/2-bpX)<60){bpX=pp.x+pp.w/2;bpY=pp.y-12;break;}
+      }
+      blueprintFragments.push({x:bpX,y:bpY,bob:Math.random()*6.28});
+      lastBlueprintX=bpX;
+    }
     // Level 3/4: spawn torches for lighting
     if((level===3||level===4)&&Math.random()<0.15){
       torches.push({x:segStart+20+Math.random()*60,flicker:Math.random()*6.28});
@@ -1625,18 +1714,19 @@ function resetGame(){
   player.powerTimer=0;player.prevY=GROUND_Y;player.invincTimer=0;player.crouching=false;
   cam.x=0;enemies=[];projectiles=[];platforms=[];terrainDunes=[];particles=[];
   fliers=[];drops=[];droids=[];lasers=[];
-  bigworms=[];daggers=[];spiders=[];gooDrops=[];torches=[];drillbots=[];
-  heartPickups=[];powerCells=[];invincPickups=[];sandworms=[];scorePopups=[];
-  score=0;distance=0;maxX=60;gameTime=0;spawnTimer=SAFE_START;shakeTimer=0;lastGenX=0;lastPowerX=0;lastHeartX=0;lastInvincX=0;
-  stompFlash=0;stompCooldown=0;stompCombo=0;
+  bigworms=[];daggers=[];spiders=[];gooDrops=[];torches=[];drillbots=[];echoBots=[];patrolCopters=[];
+  heartPickups=[];powerCells=[];invincPickups=[];blueprintFragments=[];sandworms=[];scorePopups=[];
+  score=0;distance=0;maxX=60;gameTime=0;spawnTimer=SAFE_START;shakeTimer=0;lastGenX=0;lastPowerX=0;lastHeartX=0;lastInvincX=0;lastBlueprintX=0;
+  stompFlash=0;stompCooldown=0;stompCombo=0;blueprintCount=0;level4DistanceStart=0;blueprintHintTimer=0;blueprintHintShown=false;
   level=1;levelTransitionTimer=0;freqModeTimer=0;spawnPauseTimer=0;pitFallTimer=0;pitFallScroll=0;level3GraceTimer=0;
-  invincSpawned={1:false,2:false,3:false};
+  invincSpawned={1:false,2:false,3:false,4:false,5:false};
   wormTimer=WORM_MIN_INTERVAL+Math.random()*(WORM_MAX_INTERVAL-WORM_MIN_INTERVAL);
   flierTimer=5+Math.random()*3;
   droidTimer=8+Math.random()*4;
   bigwormTimer=6+Math.random()*4;
   spiderTimer=4+Math.random()*3;
   drillbotTimer=5+Math.random()*3;
+  echoBotTimer=0;copterTimer=0;
   // Reset boss
   boss.active=false;boss.health=0;boss.state="inactive";boss.defeated=false;
   boss.timer=0;boss.hurtTimer=0;boss.flashTimer=0;boss.defeatTimer=0;
@@ -1682,6 +1772,7 @@ function resetGame(){
   hudLevel.textContent="LVL 1";
   hudLevel.style.color="#88ccff";
   hudDashLabel.textContent="DASH";
+  hudBlueprints.style.display="none";
 }
 
 // === SPAWNING ===
@@ -1747,9 +1838,9 @@ function spawnSpider(){
 
 function spawnDrillbot(){
   if(spawnPauseTimer>0||level!==4) return;
-  // Fast drill robot that runs across the ground - faster than other robots
+  // Drill robot that runs across the ground
   var sx=cam.x+W+30+Math.random()*40;
-  var speed=180+Math.random()*60; // Much faster than normal enemies
+  var speed=110+Math.random()*40; // Moderate speed
   drillbots.push({
     x:sx,y:GROUND_Y,
     vx:-speed, // Running left fast
@@ -1757,6 +1848,21 @@ function spawnDrillbot(){
     animFrame:0,
     animTimer:0
   });
+}
+
+function spawnEchoBot(){
+  if(spawnPauseTimer>0||level!==5) return;
+  var sx=cam.x+W+30;
+  echoBots.push({x:sx,y:GROUND_Y,vx:-ECHO_SPEED,hp:2,facing:-1,
+    animFrame:0,animTimer:0,tracking:false,hitFlash:0});
+}
+
+function spawnPatrolCopter(){
+  if(spawnPauseTimer>0||level!==5) return;
+  var sy=15+Math.random()*10;
+  var sx=cam.x+W+40;
+  patrolCopters.push({x:sx,y:sy,vx:-COPTER_SPEED,w:16,h:8,
+    detectTimer:0,fireCooldown:0,spotlightOn:true,propFrame:0});
 }
 
 function spawnDust(x,y,count,color){
@@ -2212,7 +2318,9 @@ function bossDefeated(){
       life:0.5+Math.random()*0.5,color:Math.random()<0.5?"#ff8844":"#ffcc44",size:2+Math.floor(Math.random()*2)});
   }
   playSfx("bossVictory");
-  // Start post-boss distance tracking - cutscene triggers at 500 distance
+  // Resume enemy spawning after boss (was paused at 999 during fight)
+  spawnPauseTimer=2.0;
+  // Start post-boss distance tracking - cutscene triggers at 500 game distance
   postBossDistanceStart=player.x;
   postBossActive=true;
 }
@@ -2397,61 +2505,55 @@ function updateCutscene(dt){
 
 // === CLOSE-UP SHOT SEQUENCE ===
 function startCloseupSequence(){
-  // Phase 1: Brief plate removal in normal view (0.5s)
+  // Phase 1: Brief plate removal in normal view
   setTimeout(function(){
     if(!cutsceneActive) return;
     showDialogue("DEZ","Let me take a look...",dez.x,dez.y-25);
+    // Wait for player to dismiss, then hard cut to close-up
+    dialogueDismissCallback=function(){
+      if(!cutsceneActive) return;
+      // Phase 2: HARD CUT to close-up
+      cutsceneShotMode="CLOSEUP";
+      cutsceneCloseupFlash=1.0;
+      cutsceneCloseupSparks=[];
+      cutsceneCloseupArcs=[];
+      // Phase 3: First close-up line after brief pause
+      setTimeout(function(){
+        if(!cutsceneActive||cutsceneShotMode!=="CLOSEUP") return;
+        showCloseupDialogue("DEZ","They're after your power cells. Not for power... for what's inside them.");
+        dialogueDismissCallback=function(){
+          if(!cutsceneActive||cutsceneShotMode!=="CLOSEUP") return;
+          // Second close-up line
+          setTimeout(function(){
+            if(!cutsceneActive||cutsceneShotMode!=="CLOSEUP") return;
+            showCloseupDialogue("DEZ","Essence. The part they can't make.");
+            dialogueDismissCallback=function(){
+              if(!cutsceneActive||cutsceneShotMode!=="CLOSEUP") return;
+              // Phase 4: Repair action beat
+              cutsceneRepairAction=true;
+              setTimeout(function(){
+                if(!cutsceneActive||cutsceneShotMode!=="CLOSEUP") return;
+                showCloseupDialogue("DEZ","Alright... I'm going to repair you and make you stronger than ever.");
+                dialogueDismissCallback=function(){
+                  if(!cutsceneActive) return;
+                  // Phase 5: HARD CUT back to normal
+                  cutsceneShotMode="NORMAL";
+                  cutsceneCloseupFlash=1.0;
+                  cutsceneRepairAction=false;
+                  cutsceneRobotBeatUp=false;
+                  dezWorking=false;
+                  // Show upgrade panel
+                  setTimeout(function(){
+                    if(cutsceneActive) showUpgradePanel();
+                  },500);
+                };
+              },800);
+            };
+          },300);
+        };
+      },500);
+    };
   },300);
-
-  // Phase 2: HARD CUT to close-up (after dialogue)
-  setTimeout(function(){
-    if(!cutsceneActive) return;
-    // Hard cut - instant switch, brief flash
-    cutsceneShotMode="CLOSEUP";
-    cutsceneCloseupFlash=1.0;
-    cutsceneCloseupSparks=[];
-    cutsceneCloseupArcs=[];
-    speechBubble.classList.remove("visible");
-    dialogueActive=false;
-  },2000);
-
-  // Phase 3: Close-up dialogue sequence
-  setTimeout(function(){
-    if(!cutsceneActive||cutsceneShotMode!=="CLOSEUP") return;
-    showCloseupDialogue("DEZ","They're after your cells. Not for power... for what's inside 'em.");
-  },2500);
-
-  setTimeout(function(){
-    if(!cutsceneActive||cutsceneShotMode!=="CLOSEUP") return;
-    showCloseupDialogue("DEZ","Essence. The part they can't make.");
-  },5500);
-
-  // Phase 4: Repair action beat
-  setTimeout(function(){
-    if(!cutsceneActive||cutsceneShotMode!=="CLOSEUP") return;
-    cutsceneRepairAction=true;
-  },8000);
-
-  setTimeout(function(){
-    if(!cutsceneActive||cutsceneShotMode!=="CLOSEUP") return;
-    showCloseupDialogue("DEZ","Alright... we rebuild. And we take it back.");
-  },9000);
-
-  // Phase 5: HARD CUT back to normal
-  setTimeout(function(){
-    if(!cutsceneActive) return;
-    cutsceneShotMode="NORMAL";
-    cutsceneCloseupFlash=1.0;
-    cutsceneRepairAction=false;
-    cutsceneRobotBeatUp=false;
-    dezWorking=false;
-    speechBubble.classList.remove("visible");
-    dialogueActive=false;
-    // Show upgrade panel
-    setTimeout(function(){
-      if(cutsceneActive) showUpgradePanel();
-    },500);
-  },12000);
 }
 
 var cutsceneRepairAction=false;
@@ -2467,11 +2569,25 @@ function showCloseupDialogue(speaker,text){
   speechSpeaker.textContent=speaker+":";
   speechTextEl.textContent="";
   speechContinue.style.display="none";
-  // Position at bottom center during close-up
-  speechBubble.style.left="50%";
-  speechBubble.style.top="auto";
-  speechBubble.style.bottom="20px";
-  speechBubble.style.transform="translateX(-50%)";
+  // Position near Dez's head in the zoomed view
+  var focusX=wxf(player.x)+5;
+  var focusY=player.y-8;
+  var dezSX=wxf(dez.x);
+  var dezSY=dez.y-25; // above head
+  // Apply zoom transform: (pt - focus) * 3.5 + center
+  var zoomedX=(dezSX-focusX)*3.5+W/2;
+  var zoomedY=(dezSY-focusY)*3.5+H/2;
+  // Convert canvas coords to DOM pixel coords
+  var domX=zoomedX*(canvas.clientWidth/W);
+  var domY=zoomedY*(canvas.clientHeight/H);
+  // Clamp to screen bounds
+  var bubbleW=220;
+  domX=Math.max(10,Math.min(canvas.clientWidth-bubbleW-10,domX-bubbleW/2));
+  domY=Math.max(10,Math.min(canvas.clientHeight-80,domY-60));
+  speechBubble.style.left=domX+"px";
+  speechBubble.style.top=domY+"px";
+  speechBubble.style.bottom="auto";
+  speechBubble.style.transform="none";
   speechBubble.classList.add("visible");
 }
 
@@ -2517,6 +2633,10 @@ function advanceDialogue(){
   // Close this dialogue
   dialogueActive=false;
   speechBubble.classList.remove("visible");
+  // Fire dismiss callback if set (used by close-up sequence)
+  var cb=dialogueDismissCallback;
+  dialogueDismissCallback=null;
+  if(cb) cb();
   return true;
 }
 
@@ -2699,34 +2819,39 @@ function drawDez(){
   R(sx-5,sy+4+lf,4,1,"#333");
   R(sx+1,sy+4+rf,4,1,"#333");
 
-  // Draw Dez's lasers - red beam from gun to current position
+  // Draw Dez's lasers - short bolt projectiles
   for(var i=0;i<dez.lasers.length;i++){
     var l=dez.lasers[i];
     if(l.hit) continue; // Don't draw after hit
-    var startSX=wxf(l.startX);
-    var startSY=l.startY;
     var endSX=wxf(l.x);
     var endSY=l.y;
+    // Bolt direction (normalized tail behind travel direction)
+    var dx=l.targetX-l.startX;
+    var dy=l.targetY-l.startY;
+    var dist=Math.sqrt(dx*dx+dy*dy)||1;
+    var boltLen=24; // Bolt length in pixels
+    var tailSX=endSX-dx/dist*boltLen;
+    var tailSY=endSY-dy/dist*boltLen;
     // Glow
     ctx.strokeStyle="#ff6644";
-    ctx.lineWidth=5;
+    ctx.lineWidth=4;
     ctx.globalAlpha=0.4;
     ctx.beginPath();
-    ctx.moveTo(F(startSX),F(startSY));
+    ctx.moveTo(F(tailSX),F(tailSY));
     ctx.lineTo(F(endSX),F(endSY));
     ctx.stroke();
-    // Core beam
+    // Core bolt
     ctx.strokeStyle="#ff2222";
     ctx.lineWidth=2;
     ctx.globalAlpha=1;
     ctx.beginPath();
-    ctx.moveTo(F(startSX),F(startSY));
+    ctx.moveTo(F(tailSX),F(tailSY));
     ctx.lineTo(F(endSX),F(endSY));
     ctx.stroke();
     // Bright tip
     ctx.fillStyle="#ffaa00";
     ctx.beginPath();
-    ctx.arc(F(endSX),F(endSY),3,0,6.29);
+    ctx.arc(F(endSX),F(endSY),2,0,6.29);
     ctx.fill();
   }
 }
@@ -2906,11 +3031,15 @@ function selectUpgrade(type){
   // Transition to Level 4
   cutsceneRobotBeatUp=false;
   level=4;
+  level4DistanceStart=distance;
   playLevelMusic(4);
   showLevelBanner("LEVEL 4: FORGE TUNNELS",2500);
   hudLevel.textContent="LVL 4";
   hudLevel.style.color="#ff6622";
   buildHearts(player.lives,MAX_LIVES);
+  invincPickups=[]; // Clear leftover invincibility from Level 3
+  // Show blueprint collection hint immediately
+  blueprintHintTimer=4.5;
 
   // End the cutscene
   endCutscene();
@@ -3061,8 +3190,9 @@ document.addEventListener("keydown",function(e){
     if(e.code==="ArrowDown"||e.code==="KeyS") held.down=true;
     if(e.code==="ShiftLeft"||e.code==="ShiftRight") held.dash=true;
     if(e.code==="Enter"){state="paused";showScreen("paused");}
-    // DEBUG: Press C to test cutscene (remove before release)
-    if(e.code==="KeyC"){
+    // DEBUG keys — localhost/file only (disabled on public site)
+    var isLocalDebug=location.hostname==="localhost"||location.hostname==="127.0.0.1"||location.protocol==="file:";
+    if(isLocalDebug&&e.code==="KeyC"){
       // Reset state for clean cutscene testing
       cutsceneDezTriggered=false;
       cutsceneRobotBeatUp=false;
@@ -3087,8 +3217,33 @@ document.addEventListener("keydown",function(e){
       level=3;
       triggerDezCutscene();
     }
-    // DEBUG: Press B to test boss fight (remove before release)
-    if(e.code==="KeyB"){
+    // DEBUG: Press L to advance to next level
+    if(isLocalDebug&&e.code==="KeyL"&&level<5){
+      var nextLvl=level+1;
+      // Common setup for all skips
+      bossSpawned=true;
+      boss.active=false;
+      boss.defeated=true;
+      cutsceneDezTriggered=true;
+      // Clear all enemies/projectiles
+      projectiles=[];lasers=[];daggers=[];gooDrops=[];
+      enemies=[];fliers=[];droids=[];sandworms=[];
+      bigworms=[];spiders=[];drillbots=[];echoBots=[];patrolCopters=[];
+      level=nextLvl;
+      spawnPauseTimer=1;
+      if(nextLvl===4) level4DistanceStart=distance;
+      if(nextLvl===5){ echoBotTimer=2+Math.random()*2;copterTimer=4+Math.random()*3; }
+      droidTimer=3+Math.random()*2;
+      var lvlColors={2:"#cc88ff",3:"#ff8844",4:"#ff6622",5:"#44ffaa"};
+      var lvlNames={2:"NIGHT DESERT",3:"SAND CAVE",4:"FORGE TUNNELS",5:"ECHO GUILD LABS"};
+      hudLevel.textContent="LVL "+nextLvl;
+      hudLevel.style.color=lvlColors[nextLvl];
+      playLevelMusic(nextLvl);
+      showLevelBanner("LEVEL "+nextLvl+": "+lvlNames[nextLvl],2500);
+      lastInvincX=cam.x;
+    }
+    // DEBUG: Press B to test boss fight
+    if(isLocalDebug&&e.code==="KeyB"){
       // Set up for boss fight in Level 3
       level=3;
       bossSpawned=false;
@@ -3144,6 +3299,8 @@ function updateMusicVolume(){
   if(level1Music)level1Music.volume=v;
   if(level2Music)level2Music.volume=v;
   if(level3Music)level3Music.volume=v;
+  if(level4Music)level4Music.volume=v;
+  if(level5Music)level5Music.volume=v;
   if(v===0){btnMute.textContent="🔇";}
   else{btnMute.textContent="🔊";}
 }
@@ -3157,6 +3314,8 @@ btnMute.addEventListener("click",function(){
     if(level1Music)level1Music.pause();
     if(level2Music)level2Music.pause();
     if(level3Music)level3Music.pause();
+    if(level4Music)level4Music.pause();
+    if(level5Music)level5Music.pause();
   }else{
     btnMute.textContent="🔊";
     playLevelMusic(level);
@@ -3305,9 +3464,10 @@ function update(dt){
     pitFallScroll=0;
     spawnPauseTimer=LEVEL_3_TRANSITION_TIME+1.5; // Extended spawn delay
     level3GraceTimer=LEVEL_3_GRACE_TIME; // Start invuln grace period
-    // Clear all projectiles/hazards and enemies from Level 2
+    // Clear all projectiles/hazards, enemies, and pickups from Level 2
     projectiles=[];lasers=[];daggers=[];gooDrops=[];
     enemies=[];fliers=[];droids=[];sandworms=[];bigworms=[];spiders=[];
+    invincPickups=[];
   }
   if(pitFallTimer>0){
     pitFallTimer-=dt;
@@ -3342,6 +3502,34 @@ function update(dt){
   // Boss spawn trigger - immediately when entering Level 3 (distance 1000)
   if(distance>=BOSS_SPAWN_THRESHOLD&&!bossSpawned&&!boss.active){
     spawnBoss();
+  }
+
+  // Level 4: hint message if 500 distance reached without enough blueprints
+  if(level===4&&!blueprintHintShown&&(distance-level4DistanceStart)>=500&&blueprintCount<BLUEPRINT_REQUIRED){
+    blueprintHintTimer=3.5;
+    blueprintHintShown=true;
+  }
+  if(blueprintHintTimer>0) blueprintHintTimer=Math.max(0,blueprintHintTimer-dt);
+
+  // Level 4→5 transition: requires 5 blueprint fragments AND 500 distance in Level 4
+  if(level===4&&blueprintCount>=BLUEPRINT_REQUIRED&&(distance-level4DistanceStart)>=500){
+    level=5;
+    levelTransitionTimer=LEVEL_TRANSITION_TIME;
+    spawnPauseTimer=SPAWN_PAUSE_TIME;
+    playLevelMusic(5);
+    playSfx("levelUp");
+    hudLevel.textContent="LVL 5";
+    hudLevel.style.color="#44ffaa";
+    showLevelBanner("LEVEL 5: ECHO GUILD LABS",2500);
+    // Clear cave enemies and pickups, keep blueprints spawning for score
+    projectiles=[];lasers=[];daggers=[];gooDrops=[];
+    bigworms=[];spiders=[];drillbots=[];
+    invincPickups=[];
+    // Reset Level 5 spawn timers
+    echoBotTimer=3+Math.random()*2;
+    copterTimer=6+Math.random()*4;
+    droidTimer=4+Math.random()*3;
+    lastInvincX=cam.x;
   }
 
   var hasPower=player.powerTimer>0;
@@ -3516,8 +3704,8 @@ function update(dt){
     // Level 3: no ships spawn in the cave
   }
 
-  // Sandworms only in Level 1 and 2 (surface levels)
-  if(gameTime>SAFE_START&&level!==3){
+  // Sandworms only in Level 1 and 2
+  if(gameTime>SAFE_START&&level<=2){
     wormTimer-=spawnDt;
     if(wormTimer<=0){
       wormTimer=WORM_MIN_INTERVAL+Math.random()*(WORM_MAX_INTERVAL-WORM_MIN_INTERVAL);
@@ -3541,37 +3729,60 @@ function update(dt){
   }
 
   // Level 3/4 enemies (cave only: big worms, spiders, red droids - NO ships/fliers)
-  // PROGRESSIVE DIFFICULTY: +10% every 200 distance past 1000
-  // Level 4 (Forge Tunnels): +25% base difficulty
+  // Level 4 is slightly harder than Level 3 but spawns 25% fewer enemies
   if(level===3||level===4){
-    var distPast1000=Math.max(0,distance-LEVEL_3_THRESHOLD);
-    var difficultyMult=1+Math.floor(distPast1000/200)*0.1; // 1.0, 1.1, 1.2, etc.
-    if(level===4) difficultyMult*=1.25; // Level 4 is 25% harder
-    var spawnMult=1/difficultyMult; // Faster spawns = shorter timers
+    var spawnMult=level===4?1.25:1; // Level 4: 25% longer between spawns (fewer enemies)
 
     bigwormTimer-=spawnDt;
     if(bigwormTimer<=0){
-      bigwormTimer=(2.2+Math.random()*1.7)*spawnMult; // 10% slower
+      bigwormTimer=(2.2+Math.random()*1.7)*spawnMult;
       spawnBigworm();
     }
     spiderTimer-=spawnDt;
     if(spiderTimer<=0){
-      spiderTimer=(1.7+Math.random()*1.7)*spawnMult; // 10% slower
+      spiderTimer=(1.7+Math.random()*1.7)*spawnMult;
       spawnSpider();
     }
-    // Red droids with increased fire rate - spawn more often
     droidTimer-=spawnDt;
     if(droidTimer<=0){
-      droidTimer=(2.8+Math.random()*2.2)*spawnMult; // 10% slower
+      droidTimer=(2.8+Math.random()*2.2)*spawnMult;
       spawnDroid();
     }
     // Level 4 only: Drill robots from the ground
     if(level===4){
       drillbotTimer-=spawnDt;
       if(drillbotTimer<=0){
-        drillbotTimer=(3.3+Math.random()*2.2)*spawnMult; // 10% slower
+        drillbotTimer=(3.3+Math.random()*2.2)*spawnMult;
         spawnDrillbot();
       }
+    }
+  }
+
+  // Level 5 enemies (Echo Guild Labs — surface industrial zone)
+  if(level===5){
+    var l5Dist=distance-level4DistanceStart-500;
+    var l5Diff=1+Math.floor(Math.max(0,l5Dist)/300)*0.08;
+    var l5SpawnMult=1/l5Diff;
+
+    // Echo Bots — primary ground threat
+    echoBotTimer-=spawnDt;
+    if(echoBotTimer<=0){
+      echoBotTimer=(3.5+Math.random()*2.5)*l5SpawnMult;
+      spawnEchoBot();
+    }
+
+    // Patrol Copters — aerial threat
+    copterTimer-=spawnDt;
+    if(copterTimer<=0){
+      copterTimer=(8+Math.random()*5)*l5SpawnMult;
+      spawnPatrolCopter();
+    }
+
+    // Droids (reuse existing)
+    droidTimer-=spawnDt;
+    if(droidTimer<=0){
+      droidTimer=(3.5+Math.random()*2.5)*l5SpawnMult;
+      spawnDroid();
     }
   }
 
@@ -3591,7 +3802,20 @@ function update(dt){
     for(var aj=props.length-1;aj>=0;aj--){
       if(props[aj].type==="antenna"){lastAntennaX=props[aj].x;break;}
     }
-    if(t2<0.08&&visibleAntennas<2&&(npx-lastAntennaX)>200){
+    if(level===5){
+      // Level 5 lab/mining equipment props
+      if(t2<0.2){
+        props.push({x:npx,type:"drill_rig"});
+      } else if(t2<0.4){
+        props.push({x:npx,type:"crane"});
+      } else if(t2<0.65){
+        props.push({x:npx,type:"lab_tank"});
+      } else if(t2<0.85){
+        props.push({x:npx,type:"console"});
+      } else {
+        props.push({x:npx,type:"panel",w:5+Math.floor(Math.random()*4),h:3+Math.floor(Math.random()*2)});
+      }
+    } else if(t2<0.08&&visibleAntennas<2&&(npx-lastAntennaX)>200){
       props.push({x:npx,type:"antenna",h:8+Math.floor(Math.random()*8)});
     } else if(t2<0.35){
       props.push({x:npx,type:"panel",w:5+Math.floor(Math.random()*4),h:3+Math.floor(Math.random()*2)});
@@ -3823,15 +4047,18 @@ function update(dt){
     }
   }
 
-  // Lasers (from droids)
+  // Lasers (from droids and copters)
   for(var li=lasers.length-1;li>=0;li--){
     var las=lasers[li];
-    las.x+=las.vx*dt;las.life-=dt;
-    if(las.life<=0||las.x<cam.x-40||las.x>cam.x+W+40){lasers.splice(li,1);continue;}
-    if(hasInvinc&&rectsOverlap(pr.x,pr.y,pr.w,pr.h,las.x-6,las.y-2,12,4)){
+    las.x+=las.vx*dt;if(las.vy) las.y+=las.vy*dt;
+    las.life-=dt;
+    if(las.life<=0||las.x<cam.x-40||las.x>cam.x+W+40||las.y>H+20){lasers.splice(li,1);continue;}
+    var isVert=!!las.vy;
+    var lhw=isVert?2:6,lhh=isVert?6:2;
+    if(hasInvinc&&rectsOverlap(pr.x,pr.y,pr.w,pr.h,las.x-lhw,las.y-lhh,lhw*2,lhh*2)){
       spawnParticles(las.x,las.y,C_INVINC,4);lasers.splice(li,1);continue;
     }
-    if(!isInvuln&&rectsOverlap(pr.x,pr.y,pr.w,pr.h,las.x-6,las.y-2,12,4)){
+    if(!isInvuln&&rectsOverlap(pr.x,pr.y,pr.w,pr.h,las.x-lhw,las.y-lhh,lhw*2,lhh*2)){
       player.lives--;player.invuln=INVULN_TIME;shakeTimer=0.2;playSfx("playerHit");
       spawnParticles(las.x,las.y,C_LASER,6);lasers.splice(li,1);
       buildHearts(player.lives,Math.max(MAX_LIVES,player.lives));
@@ -3965,7 +4192,7 @@ function update(dt){
     if(rectsOverlap(pr.x,pr.y,pr.w,pr.h,drx+2,dry+2,drill.w-4,drill.h-4)){
       // Can stomp from above
       if(player.vy>0&&player.prevY<drill.y-drill.h+5){
-        handleStomp(drill.x,drill.y,drill.y-drill.h,STOMP_DROID_SCORE);
+        doStomp(drill.x,drill.y,drill.y-drill.h,STOMP_DROID_SCORE);
         drillbots.splice(dri,1);continue;
       }
       if(hasInvinc){
@@ -3979,6 +4206,93 @@ function update(dt){
         buildHearts(player.lives,Math.max(MAX_LIVES,player.lives));
         if(player.lives<=0){gameOver();return;}
       }
+    }
+  }
+
+  // Echo Bots (Level 5) - zombie FREQ-2 copies, 2 stomps to kill
+  for(var ebi=echoBots.length-1;ebi>=0;ebi--){
+    var eb=echoBots[ebi];
+    eb.animTimer+=dt;
+    if(eb.animTimer>=0.15){eb.animTimer=0;eb.animFrame=(eb.animFrame+1)%4;}
+    if(eb.hitFlash>0) eb.hitFlash-=dt;
+    // Track player when close
+    if(Math.abs(player.x-eb.x)<200){
+      eb.tracking=true;
+      eb.vx=player.x<eb.x?-ECHO_FOLLOW_SPEED:ECHO_FOLLOW_SPEED;
+      eb.facing=eb.vx<0?-1:1;
+    } else {
+      eb.vx=-ECHO_SPEED;
+      eb.facing=-1;
+    }
+    eb.x+=eb.vx*dt;
+    // Remove if off screen (wider margin since they can reverse)
+    if(eb.x<cam.x-200||eb.x>cam.x+W+200){echoBots.splice(ebi,1);continue;}
+    // Collision
+    var ebLeft=eb.x-7,ebRight=eb.x+7,ebTop=eb.y-20;
+    if(checkStomp(ebTop,ebLeft,ebRight)){
+      eb.hp--;
+      player.vy=STOMP_BOUNCE_VEL;
+      player.y=ebTop-1;
+      player.onGround=false;
+      stompCooldown=STOMP_COOLDOWN;
+      playSfx("enemyHit");
+      if(eb.hp<=0){
+        stompCombo++;
+        var eMult=Math.min(stompCombo,5);
+        score+=STOMP_ECHO_SCORE*eMult;
+        spawnScorePopup(eb.x,eb.y-10,STOMP_ECHO_SCORE,eMult);
+        stompFlash=0.15;
+        spawnParticles(eb.x,eb.y-10,C_ECHO,16);
+        spawnParticles(eb.x,eb.y-10,"#ffffff",6);
+        echoBots.splice(ebi,1);continue;
+      } else {
+        eb.hitFlash=0.3;
+        spawnParticles(eb.x,eb.y-10,C_ECHO_VISOR,8);
+      }
+    } else if(rectsOverlap(pr.x,pr.y,pr.w,pr.h,ebLeft+2,ebTop+2,12,16)){
+      if(hasInvinc){
+        score+=STOMP_ECHO_SCORE;
+        spawnScorePopup(eb.x,eb.y-10,STOMP_ECHO_SCORE,1);
+        spawnParticles(eb.x,eb.y-10,C_INVINC,10);
+        echoBots.splice(ebi,1);continue;
+      } else if(!isInvuln){
+        player.lives--;player.invuln=INVULN_TIME;shakeTimer=0.3;playSfx("playerHit");
+        spawnParticles(eb.x,eb.y-10,C_ECHO,8);
+        buildHearts(player.lives,Math.max(MAX_LIVES,player.lives));
+        if(player.lives<=0){gameOver();return;}
+      }
+    }
+  }
+
+  // Patrol Copters (Level 5) - fly overhead with spotlight, shoot if player detected
+  for(var cpi=patrolCopters.length-1;cpi>=0;cpi--){
+    var cop=patrolCopters[cpi];
+    cop.x+=cop.vx*dt;
+    cop.propFrame+=dt*20;
+    if(cop.fireCooldown>0) cop.fireCooldown-=dt;
+    // Remove if off screen
+    if(cop.x<cam.x-60||cop.x>cam.x+W+60){patrolCopters.splice(cpi,1);continue;}
+    // Spotlight detection
+    var spotLeft=cop.x-COPTER_SPOT_WIDTH/2;
+    var spotRight=cop.x+COPTER_SPOT_WIDTH/2;
+    if(player.x>=spotLeft&&player.x<=spotRight){
+      cop.detectTimer+=dt;
+      if(cop.detectTimer>=COPTER_DETECT_TIME&&cop.fireCooldown<=0){
+        // Fire laser downward
+        lasers.push({x:cop.x,y:cop.y+4,vx:0,vy:150,life:2});
+        cop.fireCooldown=COPTER_FIRE_COOLDOWN;
+        cop.detectTimer=0;
+        playSfx("laser");
+      }
+    } else {
+      cop.detectTimer=0;
+    }
+    // Stomp (rare - only from high platforms)
+    var copLeft=cop.x-cop.w/2,copTop=cop.y-cop.h/2;
+    if(checkStomp(copTop,copLeft,copLeft+cop.w)){
+      doStomp(cop.x,cop.y,copTop,SCORE_ENEMY_KILL);
+      spawnParticles(cop.x,cop.y,C_COPTER_LIGHT,12);
+      patrolCopters.splice(cpi,1);continue;
     }
   }
 
@@ -4013,6 +4327,22 @@ function update(dt){
       playSfx("pickupPower");
       spawnParticles(pw.x,pwY,C_POWER,12);
       powerCells.splice(pc,1);
+    }
+  }
+
+  // Blueprint fragments (Level 4)
+  for(var bf=blueprintFragments.length-1;bf>=0;bf--){
+    var bp=blueprintFragments[bf];bp.bob+=dt*3;
+    if(bp.x<cam.x-80){blueprintFragments.splice(bf,1);continue;}
+    var bpY=bp.y+Math.sin(bp.bob)*2;
+    if(rectsOverlap(pr.x,pr.y,pr.w,pr.h,bp.x-6,bpY-6,12,12)){
+      blueprintCount++;
+      score+=SCORE_ITEM_PICKUP;
+      spawnScorePopup(bp.x,bpY-10,SCORE_ITEM_PICKUP,1);
+      playSfx("pickupPower");
+      spawnParticles(bp.x,bpY,C_BLUEPRINT,12);
+      blueprintFragments.splice(bf,1);
+      hudBlueprints.textContent=blueprintCount+(level===4?"/"+BLUEPRINT_REQUIRED:"");
     }
   }
 
@@ -4071,6 +4401,13 @@ function update(dt){
   // DOM HUD - show score (distance + bonuses) and distance
   hudCenter.textContent="SCORE: "+score+" | DIST: "+distance;
   hudHi.textContent="HI: "+bestScore;
+  // Blueprint fragment counter (Level 4 and 5)
+  if(level===4||level===5){
+    hudBlueprints.style.display="block";
+    hudBlueprints.textContent=blueprintCount+(level===4?"/"+BLUEPRINT_REQUIRED:"");
+  } else {
+    hudBlueprints.style.display="none";
+  }
   if(player.invuln>0&&gameTime<SAFE_START+0.5) hudSafe.style.display="block";
   else hudSafe.style.display="none";
   if(hasPower){
@@ -4338,7 +4675,7 @@ function drawSky(){
         var t2=(t-0.5)/0.5;
         r=F(22+t2*8);g=F(16+t2*6);b=F(11+t2*5);
       }
-    } else {
+    } else if(level===4){
       // Level 4 Forge Tunnels - warmer with orange/red hints
       if(t<0.5){
         var t2=t/0.5;
@@ -4347,17 +4684,29 @@ function drawSky(){
         var t2=(t-0.5)/0.5;
         r=F(33+t2*10);g=F(14+t2*5);b=F(7+t2*3);
       }
+    } else {
+      // Level 5 Echo Guild Labs - dark industrial blue-gray, outside
+      if(t<0.3){
+        var t2=t/0.3;
+        r=F(15+t2*12);g=F(18+t2*14);b=F(30+t2*18);
+      } else if(t<0.6){
+        var t2=(t-0.3)/0.3;
+        r=F(27+t2*12);g=F(32+t2*10);b=F(48+t2*10);
+      } else {
+        var t2=(t-0.6)/0.4;
+        r=F(39+t2*10);g=F(42+t2*8);b=F(58+t2*6);
+      }
     }
     R(0,i*(GROUND_Y/bands),W,Math.ceil(GROUND_Y/bands)+1,"rgb("+r+","+g+","+b+")");
   }
 
-  // Stars (brighter in Level 2, none in Level 3/4 caves)
+  // Stars (brighter in Level 2, none in Level 3/4 caves, visible in Level 5)
   if(level!==3&&level!==4){
     for(var si=0;si<stars.length;si++){
       var st=stars[si];
       var twinkle=Math.sin(shimmerOffset*2+st.s*5)*0.3+0.7;
-      ctx.globalAlpha=st.b*twinkle*(level===2?0.9:0.6);
-      R(st.x,st.y,1,1,"#fff");
+      ctx.globalAlpha=st.b*twinkle*(level===2?0.9:level===5?0.7:0.6);
+      R(st.x,st.y,1,1,level===5?"#aabbcc":"#fff");
     }
   }
   ctx.globalAlpha=1;
@@ -4400,6 +4749,15 @@ function drawSky(){
   } else if(level===3||level===4){
     // Level 3/4 cave interior - ant farm / cross-section style
     drawCaveCeiling();
+  } else if(level===5){
+    // Level 5 — hazy industrial moon, partially obscured
+    ctx.globalAlpha=0.05;ctx.fillStyle="#8899aa";
+    ctx.beginPath();ctx.arc(W-60,30,18,0,6.29);ctx.fill();
+    ctx.globalAlpha=0.1;ctx.fillStyle="#99aabb";
+    ctx.beginPath();ctx.arc(W-60,30,12,0,6.29);ctx.fill();
+    ctx.globalAlpha=0.25;ctx.fillStyle="#aabbcc";
+    ctx.beginPath();ctx.arc(W-60,30,7,0,6.29);ctx.fill();
+    ctx.globalAlpha=1;
   }
 
   // Clouds (level-appropriate, none in cave)
@@ -4407,7 +4765,7 @@ function drawSky(){
     ctx.globalAlpha=0.04;
     var cx1=((shimmerOffset*3)%300)-40;
     var cx2=((shimmerOffset*2+120)%340)-50;
-    var cc=level===1?"#ffeedd":"#445566";
+    var cc=level===1?"#ffeedd":level===5?"#3a4a5a":"#445566";
     R(cx1,40,60,4,cc);R(cx1+20,38,30,3,cc);
     R(cx2,55,50,3,cc);R(cx2+15,53,25,3,cc);
     ctx.globalAlpha=1;
@@ -4722,6 +5080,60 @@ function drawCaveBackground(){
   }
 }
 
+// Level 5 industrial background - distant structures and mining hills
+function drawIndustrialBG(){
+  if(level!==5) return;
+  var scrollX,x,h;
+
+  // Layer 1: Far industrial hills (slow)
+  scrollX=cam.x*0.01;
+  ctx.fillStyle=C5_DUNE_FAR;
+  ctx.beginPath();ctx.moveTo(0,GROUND_Y);
+  for(x=0;x<=W;x+=4){
+    h=45+Math.sin((x+scrollX)*0.012)*18+Math.sin((x+scrollX)*0.028)*12;
+    ctx.lineTo(x,GROUND_Y-h);
+  }
+  ctx.lineTo(W,GROUND_Y);ctx.fill();
+
+  // Layer 2: Mid structures (medium)
+  scrollX=cam.x*0.04;
+  ctx.fillStyle=C5_DUNE_MID;
+  ctx.beginPath();ctx.moveTo(0,GROUND_Y);
+  for(x=0;x<=W;x+=3){
+    // Blocky industrial silhouette
+    h=25+Math.sin((x+scrollX)*0.02)*10;
+    // Add rectangular structure bumps
+    var bx=F((x+scrollX)*0.1)%30;
+    if(bx<8) h+=10+bx;
+    else if(bx<12) h+=18; // flat top
+    else if(bx<20) h+=18-(bx-12);
+    ctx.lineTo(x,GROUND_Y-h);
+  }
+  ctx.lineTo(W,GROUND_Y);ctx.fill();
+  // Structure details - faint lights on buildings
+  for(x=20;x<W;x+=40){
+    var wx=x+scrollX;
+    var bx2=F(wx*0.1)%30;
+    if(bx2>=8&&bx2<12){
+      var bh=25+Math.sin((x+cam.x*0.04)*0.02)*10+18;
+      ctx.globalAlpha=0.15;
+      R(x,GROUND_Y-bh+3,1,1,"#66ccff");
+      R(x+3,GROUND_Y-bh+5,1,1,"#ffaa44");
+      ctx.globalAlpha=1;
+    }
+  }
+
+  // Layer 3: Near ground shapes (fastest)
+  scrollX=cam.x*0.08;
+  ctx.fillStyle=C5_DUNE_NEAR;
+  ctx.beginPath();ctx.moveTo(0,GROUND_Y);
+  for(x=0;x<=W;x+=3){
+    h=12+Math.sin((x+scrollX)*0.04)*8+Math.sin((x+scrollX)*0.08)*5;
+    ctx.lineTo(x,GROUND_Y-h);
+  }
+  ctx.lineTo(W,GROUND_Y);ctx.fill();
+}
+
 // SNES-style clouds (Level 1 only)
 function drawClouds(){
   if(level!==1) return;
@@ -4762,9 +5174,9 @@ function drawParallaxDunes(){
     ctx.lineTo(W,GROUND_Y);ctx.fill();
   } else {
     // Original code for other levels
-    var cFar=level===2?C2_DUNE_FAR:C3_DUNE_FAR;
-    var cMid=level===2?C2_DUNE_MID:C3_DUNE_MID;
-    var cNear=level===2?C2_DUNE_NEAR:C3_DUNE_NEAR;
+    var cFar=level===5?C5_DUNE_FAR:level===2?C2_DUNE_FAR:C3_DUNE_FAR;
+    var cMid=level===5?C5_DUNE_MID:level===2?C2_DUNE_MID:C3_DUNE_MID;
+    var cNear=level===5?C5_DUNE_NEAR:level===2?C2_DUNE_NEAR:C3_DUNE_NEAR;
     for(var i=0;i<dunesFar.length;i++){
       var d=dunesFar[i];
       var sx=((d.x-cam.x*0.08)%(W+40)+W+40)%(W+40)-20;
@@ -4787,10 +5199,10 @@ function drawParallaxDunes(){
 }
 
 function drawGround(){
-  var cG=level===1?C_GROUND:level===2?C2_GROUND:level===4?C4_GROUND:C3_GROUND;
-  var cGD=level===1?C_GROUND_DARK:level===2?C2_GROUND_DARK:level===4?C4_GROUND_DARK:C3_GROUND_DARK;
-  var cGDP=level===1?C_GROUND_DEEPER:level===2?C2_GROUND_DEEPER:level===4?C4_GROUND_DEEPER:C3_GROUND_DEEPER;
-  var cGL=level===1?C_GROUND_LINE:level===2?C2_GROUND_LINE:level===4?C4_GROUND_LINE:C3_GROUND_LINE;
+  var cG=level===1?C_GROUND:level===2?C2_GROUND:level===5?C5_GROUND:level===4?C4_GROUND:C3_GROUND;
+  var cGD=level===1?C_GROUND_DARK:level===2?C2_GROUND_DARK:level===5?C5_GROUND_DARK:level===4?C4_GROUND_DARK:C3_GROUND_DARK;
+  var cGDP=level===1?C_GROUND_DEEPER:level===2?C2_GROUND_DEEPER:level===5?C5_GROUND_DEEPER:level===4?C4_GROUND_DEEPER:C3_GROUND_DEEPER;
+  var cGL=level===1?C_GROUND_LINE:level===2?C2_GROUND_LINE:level===5?C5_GROUND_LINE:level===4?C4_GROUND_LINE:C3_GROUND_LINE;
   R(0,GROUND_Y,W,H-GROUND_Y,cG);
   if(level===1){
     // Super Star Wars style ground - scrolls with world
@@ -4905,8 +5317,52 @@ function drawGround(){
         R(px,py,1,1,"#4a4565");
       }
     }
+  } else if(level===5){
+    // Level 5 industrial concrete ground
+    var camOff=cam.x;
+    R(0,GROUND_Y,W,1,"#4a5565");
+    R(0,GROUND_Y+1,W,1,"#3a4555");
+    R(0,GROUND_Y+2,W,3,"#334050");
+    R(0,GROUND_Y+5,W,4,"#2a3545");
+    R(0,GROUND_Y+9,W,5,"#243040");
+    R(0,GROUND_Y+14,W,6,"#1e2838");
+    R(0,GROUND_Y+20,W,H-GROUND_Y-20,"#182030");
+    // Concrete seam lines
+    ctx.strokeStyle="rgba(60,75,90,0.35)";ctx.lineWidth=1;
+    for(var wy=GROUND_Y+4;wy<GROUND_Y+22;wy+=4){
+      ctx.beginPath();
+      for(var x=0;x<=W;x+=4){
+        var worldX=x+camOff;
+        var wx=x+Math.sin((worldX+wy*1.5)*0.08)*2;
+        if(x===0)ctx.moveTo(wx,wy);else ctx.lineTo(wx,wy);
+      }
+      ctx.stroke();
+    }
+    // Dark seam cracks
+    ctx.fillStyle="rgba(10,15,25,0.3)";
+    for(var band=0;band<3;band++){
+      var by=GROUND_Y+5+band*6;
+      ctx.beginPath();ctx.moveTo(0,by);
+      for(var x=0;x<=W;x+=8){
+        var worldX=x+camOff;
+        var wh=Math.sin((worldX+band*35)*0.06)*1.5;
+        ctx.lineTo(x,by+wh);
+      }
+      ctx.lineTo(W,by+2);ctx.lineTo(0,by+2);ctx.fill();
+    }
+    // Scattered debris/bolts
+    for(var i=0;i<35;i++){
+      var worldPx=i*28;
+      var px=worldPx-camOff%980;
+      if(px>-5&&px<W+5){
+        var py=GROUND_Y+4+((i*11)%14);
+        R(px+1,py+1,2,1,"#141a24");
+        R(px,py,2,1,"#3a4555");
+        R(px,py,1,1,"#4a5565");
+      }
+    }
   } else {
-    // Level 3 cave ground - scrolls with world
+    // Level 3/4 cave ground - scrolls with world
     var camOff=cam.x;
     R(0,GROUND_Y,W,1,"#3a2820");
     R(0,GROUND_Y+1,W,1,"#2a1a14");
@@ -4950,8 +5406,8 @@ function drawGround(){
       }
     }
   }
-  var cSpec=level===1?C_SAND_SPEC:level===2?C2_SAND_SPEC:C3_SAND_SPEC;
-  var cSDark=level===1?C_SAND_DARK:level===2?C2_SAND_DARK:C3_SAND_DARK;
+  var cSpec=level===1?C_SAND_SPEC:level===2?C2_SAND_SPEC:level===5?C5_SAND_SPEC:C3_SAND_SPEC;
+  var cSDark=level===1?C_SAND_DARK:level===2?C2_SAND_DARK:level===5?C5_SAND_DARK:C3_SAND_DARK;
   for(var i=0;i<sandSpecs.length;i++){
     var s=sandSpecs[i],sx=wxf(s.x);
     if(sx>-2&&sx<W+2) R(sx,s.y,1,1,i%2===0?cSpec:cSDark);
@@ -5024,10 +5480,10 @@ function drawTerrainDunes(){
         }
       }
     } else {
-      var cBase=level===2?C2_TDUNE_BASE:C3_TDUNE_BASE;
-      var cInner=level===2?C2_TDUNE_INNER:C3_TDUNE_INNER;
-      var cHigh=level===2?C2_TDUNE_HIGHLIGHT:C3_TDUNE_HIGHLIGHT;
-      var cShad=level===2?C2_TDUNE_SHADOW:C3_TDUNE_SHADOW;
+      var cBase=level===5?C5_TDUNE_BASE:level===2?C2_TDUNE_BASE:C3_TDUNE_BASE;
+      var cInner=level===5?C5_TDUNE_INNER:level===2?C2_TDUNE_INNER:C3_TDUNE_INNER;
+      var cHigh=level===5?C5_TDUNE_HIGHLIGHT:level===2?C2_TDUNE_HIGHLIGHT:C3_TDUNE_HIGHLIGHT;
+      var cShad=level===5?C5_TDUNE_SHADOW:level===2?C2_TDUNE_SHADOW:C3_TDUNE_SHADOW;
       ctx.fillStyle=cBase;
       ctx.beginPath();ctx.ellipse(F(sx),GROUND_Y,radius,d.h,0,Math.PI,0);ctx.fill();
       ctx.fillStyle=cInner;
@@ -5045,10 +5501,10 @@ function drawGlowDomes(){
   for(var i=0;i<glowDomes.length;i++){
     var g=glowDomes[i],sx=wxf(g.x);
     if(sx<-20||sx>W+20) continue;
-    var gc=level===1?"#ffeedd":"#8888aa";
+    var gc=level===1?"#ffeedd":level===5?"#44aacc":"#8888aa";
     ctx.globalAlpha=0.08;ctx.fillStyle=gc;
     ctx.beginPath();ctx.ellipse(F(sx),GROUND_Y,g.r*2,g.r,0,Math.PI,0);ctx.fill();
-    ctx.globalAlpha=0.15;ctx.fillStyle=level===1?"#fff8ee":"#aaaacc";
+    ctx.globalAlpha=0.15;ctx.fillStyle=level===1?"#fff8ee":level===5?"#66ccee":"#aaaacc";
     ctx.beginPath();ctx.ellipse(F(sx),GROUND_Y,g.r,g.r*0.6,0,Math.PI,0);ctx.fill();
     ctx.globalAlpha=1;
   }
@@ -5095,6 +5551,90 @@ function drawProps(){
         ctx.fillStyle="#c8b8a0";
         ctx.beginPath();ctx.ellipse(F(sx-1),gy-3,p.r*0.5,p.r*0.3,0,Math.PI,0);ctx.fill();
       }
+    } else if(level===5){
+      // Level 5: Lab/mining equipment
+      if(p.type==="drill_rig"){
+        // Tall drilling structure
+        R(sx-2,gy-22,4,22,"#3a4555"); // Main column
+        R(sx-1,gy-22,2,22,"#4a5565"); // Highlight
+        R(sx-5,gy-24,10,4,"#334455"); // Top frame
+        R(sx-4,gy-23,8,2,"#445566");
+        // Drill head (animated spin)
+        var drSpin=F(shimmerOffset*10)%2;
+        R(sx-3,gy-2,6,3,"#667788"); // Drill base
+        R(sx-2,gy+1,4,2,"#556677"); // Drill tip
+        if(drSpin===0){R(sx-1,gy,1,1,"#889aaa");}else{R(sx,gy,1,1,"#889aaa");}
+        // Cyan essence pooling below
+        ctx.globalAlpha=0.25;ctx.fillStyle="#44ccff";
+        ctx.beginPath();ctx.ellipse(F(sx),gy+3,6,2,0,0,6.29);ctx.fill();
+        ctx.globalAlpha=0.15;
+        ctx.beginPath();ctx.ellipse(F(sx),gy+3,9,3,0,0,6.29);ctx.fill();
+        ctx.globalAlpha=1;
+        // Support struts
+        R(sx-6,gy-12,2,10,"#2a3545");
+        R(sx+4,gy-12,2,10,"#2a3545");
+      } else if(p.type==="crane"){
+        // Angled crane arm with cable
+        R(sx-1,gy-18,3,18,"#3a4555"); // Vertical column
+        R(sx-1,gy-18,2,2,"#556677"); // Top cap
+        // Angled arm
+        ctx.strokeStyle="#4a5565";ctx.lineWidth=2;
+        ctx.beginPath();ctx.moveTo(sx,gy-17);ctx.lineTo(sx+14,gy-20);ctx.stroke();
+        ctx.lineWidth=1;
+        // Cable hanging down
+        ctx.strokeStyle="#667788";
+        ctx.beginPath();ctx.moveTo(sx+12,gy-19);ctx.lineTo(sx+12,gy-6);ctx.stroke();
+        // Hook
+        R(sx+11,gy-7,2,3,"#778899");
+        // Base
+        R(sx-4,gy-2,8,3,"#334455");
+        R(sx-3,gy-1,6,1,"#445566");
+      } else if(p.type==="lab_tank"){
+        // Cylindrical tank with cyan glow
+        R(sx-4,gy-14,8,14,"#334455"); // Tank body
+        R(sx-3,gy-13,6,12,"#3a4a5a"); // Inner
+        R(sx-3,gy-13,1,12,"#445566"); // Left highlight
+        // Cyan liquid inside
+        var fillH=8+Math.sin(shimmerOffset*2)*1;
+        ctx.globalAlpha=0.4;ctx.fillStyle="#44ccff";
+        R(sx-2,gy-2-fillH,4,fillH,"#44ccff");
+        ctx.globalAlpha=0.2;
+        ctx.beginPath();ctx.ellipse(F(sx),gy-2-fillH,3,1,0,0,6.29);ctx.fill();
+        ctx.globalAlpha=1;
+        // Top cap and pipes
+        R(sx-5,gy-15,10,2,"#445566");
+        R(sx-5,gy-14,1,5,"#3a4555"); // Pipe left
+        R(sx+4,gy-14,1,5,"#3a4555"); // Pipe right
+        // Base
+        R(sx-5,gy-1,10,2,"#334455");
+      } else if(p.type==="console"){
+        // Small computer terminal with blinking lights
+        R(sx-3,gy-8,6,8,"#334455"); // Body
+        R(sx-2,gy-7,4,4,"#1a2430"); // Screen
+        // Screen glow
+        ctx.globalAlpha=0.3;R(sx-2,gy-7,4,4,"#44aacc");ctx.globalAlpha=1;
+        // Blinking lights
+        var blink=F(shimmerOffset*4)%3;
+        R(sx-1,gy-2,1,1,blink===0?"#44ff44":"#226622");
+        R(sx+1,gy-2,1,1,blink===1?"#ff4444":"#662222");
+        R(sx,gy-2,1,1,blink===2?"#ffaa44":"#664422");
+        // Base
+        R(sx-4,gy-1,8,2,"#2a3545");
+      } else {
+        // Generic industrial prop (fallback for standard types)
+        var pc1="#4a5565";var pc2="#3a4555";
+        if(p.type==="antenna"){
+          R(sx,gy-p.h,1,p.h,pc1);R(sx,gy-p.h,2,1,"#44ccff");R(sx-1,gy-2,3,2,pc2);
+        } else if(p.type==="panel"){
+          R(sx,gy-p.h,p.w,p.h,pc2);R(sx,gy-p.h,p.w,1,pc1);R(sx+p.w-1,gy-p.h,1,p.h,"#2a3545");
+        } else if(p.type==="wreck"){
+          R(sx,gy-3,p.w,3,"#3a4555");R(sx+1,gy-4,p.w-2,1,"#4a5565");
+        } else {
+          ctx.globalAlpha=0.1;ctx.fillStyle="#4466aa";
+          ctx.beginPath();ctx.ellipse(F(sx),gy,p.r*2,p.r,0,Math.PI,0);ctx.fill();
+          ctx.globalAlpha=1;
+        }
+      }
     } else {
       var pc1="#556677";var pc2="#445566";
       if(p.type==="antenna"){
@@ -5125,6 +5665,10 @@ function drawPlatforms(){
       // Night desert - purple/blue stone
       outline="#3a3058";stone1="#706090";stone2="#605080";stone3="#504070";
       highlight="#908ab0";shadow="#403058";
+    } else if(level===5){
+      // Industrial steel-blue platforms
+      outline="#1a2430";stone1="#4a5565";stone2="#3a4555";stone3="#2a3545";
+      highlight="#5a6575";shadow="#1e2838";
     } else {
       // Cave - dark brown/gray stone
       outline="#2a2018";stone1="#605040";stone2="#504030";stone3="#403020";
@@ -5567,11 +6111,21 @@ function drawLasers(){
   for(var i=0;i<lasers.length;i++){
     var las=lasers[i],sx=wxf(las.x),sy=las.y;
     if(sx<-20||sx>W+20) continue;
-    ctx.globalAlpha=0.3;ctx.fillStyle=C_LASER_GLOW;
-    R(sx-8,sy-3,16,6,C_LASER_GLOW);
-    ctx.globalAlpha=1;
-    R(sx-6,sy-1,12,2,C_LASER);
-    R(sx-4,sy,8,1,"#ff6666");
+    if(las.vy){
+      // Vertical laser (from copters)
+      ctx.globalAlpha=0.3;ctx.fillStyle=C_LASER_GLOW;
+      R(sx-3,sy-8,6,16,C_LASER_GLOW);
+      ctx.globalAlpha=1;
+      R(sx-1,sy-6,2,12,C_LASER);
+      R(sx,sy-4,1,8,"#ff6666");
+    } else {
+      // Horizontal laser (from droids)
+      ctx.globalAlpha=0.3;ctx.fillStyle=C_LASER_GLOW;
+      R(sx-8,sy-3,16,6,C_LASER_GLOW);
+      ctx.globalAlpha=1;
+      R(sx-6,sy-1,12,2,C_LASER);
+      R(sx-4,sy,8,1,"#ff6666");
+    }
   }
 }
 
@@ -5707,6 +6261,143 @@ function drawDrillbots(){
     // Boots
     R(bx-4,by+3+lf,4,1,"#0a1828");
     R(bx,by+3+rf,4,1,"#0a1828");
+  }
+}
+
+function drawEchoBots(){
+  for(var i=0;i<echoBots.length;i++){
+    var eb=echoBots[i],sx=wxf(eb.x),sy=eb.y;
+    if(sx<-30||sx>W+30) continue;
+    var frame=eb.animFrame;
+    var f=eb.facing;
+    var lf=0,rf=0;
+    if(frame===1){lf=-2;rf=1;}else if(frame===3){lf=1;rf=-2;}
+    var bx=F(sx),by=F(sy);
+    var damaged=eb.hp===1;
+    var flashing=eb.hitFlash>0&&F(eb.hitFlash*20)%2===0;
+    var blueDark=flashing?"#ffffff":C_ECHO_DARK;
+    var blueMid=flashing?"#ffffff":C_ECHO;
+    var blueLight=flashing?"#ffffff":C_ECHO_LIGHT;
+    var visor=C_ECHO_VISOR;
+    var visorGlow="#aaffaa";
+    var coreGlow=C_ECHO_CORE;
+    var outline="#0a1828";
+    // Shadow
+    ctx.globalAlpha=0.3;ctx.fillStyle="#000";
+    ctx.beginPath();ctx.ellipse(bx,by+1,5,2,0,0,6.29);ctx.fill();
+    ctx.globalAlpha=1;
+    // HELMET (1px lower = hunched)
+    var headY=by-13;
+    ctx.fillStyle=outline;
+    ctx.beginPath();ctx.arc(F(bx),F(headY),7,0,6.29);ctx.fill();
+    ctx.fillStyle=blueDark;
+    ctx.beginPath();ctx.arc(F(bx),F(headY),6,0,6.29);ctx.fill();
+    ctx.fillStyle=blueMid;
+    ctx.beginPath();ctx.arc(F(bx),F(headY),5,0,6.29);ctx.fill();
+    ctx.fillStyle=blueLight;
+    ctx.beginPath();ctx.arc(F(bx),F(headY-2),3,0,3.14,true);ctx.fill();
+    // Green visor
+    if(f===1){
+      R(bx-3,headY-2,9,4,outline);
+      R(bx-2,headY-1,8,3,"#447722");
+      R(bx-1,headY-1,7,2,visor);
+      R(bx,headY,5,1,visorGlow);
+      ctx.globalAlpha=0.3;R(bx-2,headY-3,8,5,visorGlow);ctx.globalAlpha=1;
+    } else {
+      R(bx-6,headY-2,9,4,outline);
+      R(bx-5,headY-1,8,3,"#447722");
+      R(bx-5,headY-1,7,2,visor);
+      R(bx-4,headY,5,1,visorGlow);
+      ctx.globalAlpha=0.3;R(bx-5,headY-3,8,5,visorGlow);ctx.globalAlpha=1;
+    }
+    // Ear sensors
+    R(bx-7,headY-2,2,3,outline);R(bx-6,headY-1,1,2,blueMid);
+    R(bx+5,headY-2,2,3,outline);R(bx+5,headY-1,1,2,blueMid);
+    // TORSO
+    R(bx-5,by-9,10,8,outline);
+    R(bx-4,by-8,8,6,blueDark);
+    R(bx-3,by-7,6,4,blueMid);
+    // Green core
+    R(bx-1,by-6,2,2,coreGlow);
+    ctx.globalAlpha=0.4+Math.sin(shimmerOffset*4)*0.2;
+    R(bx-2,by-7,4,4,visor);ctx.globalAlpha=1;
+    // Belt
+    R(bx-4,by-2,8,2,outline);R(bx-3,by-1,6,1,blueMid);
+    // Shoulders
+    R(bx-10,by-10,5,5,outline);R(bx-9,by-9,4,4,blueDark);R(bx-8,by-8,3,3,blueMid);
+    R(bx+5,by-10,5,5,outline);R(bx+5,by-9,4,4,blueDark);R(bx+5,by-8,3,3,blueMid);
+    // Arms
+    var ao=frame===1?-1:frame===3?1:0;
+    R(bx-9,by-6+ao,3,9,outline);R(bx-8,by-5+ao,2,8,blueDark);
+    R(bx+6,by-6-ao,3,9,outline);R(bx+6,by-5-ao,2,8,blueDark);
+    // Legs
+    R(bx-4,by-1+lf,3,6+Math.abs(lf),outline);R(bx-3,by+lf,2,5+Math.abs(lf),blueDark);
+    R(bx+1,by-1+rf,3,6+Math.abs(rf),outline);R(bx+1,by+rf,2,5+Math.abs(rf),blueDark);
+    // Boots
+    R(bx-5,by+4+lf,4,2,outline);R(bx-4,by+4+lf,3,1,blueMid);
+    R(bx+1,by+4+rf,4,2,outline);R(bx+1,by+4+rf,3,1,blueMid);
+    // Damaged effects
+    if(damaged){
+      // Sparking / glitching
+      if(Math.random()<0.3){
+        var sparkX=bx-5+Math.random()*10,sparkY=by-15+Math.random()*15;
+        R(sparkX,sparkY,1,1,visor);
+        R(sparkX+1,sparkY-1,1,1,"#ffffff");
+      }
+      // Missing pixel chunks
+      ctx.globalAlpha=0.6;
+      R(bx+3,by-8,3,3,outline);
+      R(bx-5,by-4,2,2,outline);
+      ctx.globalAlpha=1;
+    }
+  }
+}
+
+function drawPatrolCopters(){
+  for(var i=0;i<patrolCopters.length;i++){
+    var cop=patrolCopters[i],sx=wxf(cop.x),sy=cop.y;
+    if(sx<-30||sx>W+30) continue;
+    var bx=F(sx),by=F(sy);
+    // Spotlight cone (before body so body draws over top)
+    var spotAlpha=0.08;
+    var spotColor=C_SPOTLIGHT;
+    if(cop.detectTimer>0){
+      spotAlpha=0.12+cop.detectTimer*0.1;
+      if(cop.fireCooldown>COPTER_FIRE_COOLDOWN-0.15) spotColor="#ff4444"; // Flash red when firing
+    }
+    ctx.globalAlpha=spotAlpha;
+    ctx.fillStyle=spotColor;
+    ctx.beginPath();
+    ctx.moveTo(bx-2,by+4);
+    ctx.lineTo(bx-COPTER_SPOT_WIDTH/2,GROUND_Y);
+    ctx.lineTo(bx+COPTER_SPOT_WIDTH/2,GROUND_Y);
+    ctx.lineTo(bx+2,by+4);
+    ctx.closePath();ctx.fill();
+    ctx.globalAlpha=1;
+    // Body - dark metallic rectangle
+    R(bx-8,by-3,16,6,C_COPTER_DARK);
+    R(bx-7,by-2,14,4,C_COPTER);
+    R(bx-6,by-2,12,1,C_COPTER_LIGHT);
+    // Rivets
+    R(bx-5,by,1,1,"#556677");R(bx+4,by,1,1,"#556677");
+    // Spinning propeller on top
+    var propPhase=F(cop.propFrame)%2;
+    if(propPhase===0){
+      R(bx-10,by-5,20,1,"#667788");
+      R(bx-1,by-5,2,1,"#88aacc");
+    } else {
+      R(bx-3,by-5,6,1,"#667788");
+      R(bx-1,by-5,2,1,"#88aacc");
+    }
+    // Propeller hub
+    R(bx-1,by-4,2,2,"#556677");
+    // Indicator lights
+    R(bx-7,by+2,1,1,"#ff4444"); // Red
+    R(bx+6,by+2,1,1,"#44ff44"); // Green
+    // Spotlight source glow
+    ctx.globalAlpha=0.5;ctx.fillStyle=C_SPOTLIGHT;
+    R(bx-1,by+3,2,1,C_SPOTLIGHT);
+    ctx.globalAlpha=1;
   }
 }
 
@@ -6160,6 +6851,32 @@ function drawPowerCells(){
   }
 }
 
+function drawBlueprintFragments(){
+  for(var i=0;i<blueprintFragments.length;i++){
+    var bp=blueprintFragments[i],sx=wxf(bp.x),sy=bp.y+Math.sin(bp.bob)*2;
+    if(sx<-20||sx>W+20) continue;
+    drawShadow(sx,GROUND_Y+1,5);
+    // Glow aura
+    ctx.globalAlpha=0.15+Math.sin(bp.bob*1.5)*0.05;ctx.fillStyle=C_BLUEPRINT_GLOW;
+    ctx.beginPath();ctx.arc(F(sx),F(sy),9,0,6.29);ctx.fill();ctx.globalAlpha=1;
+    // Parchment body
+    R(sx-5,sy-6,10,12,"#d4c4a0");
+    R(sx-4,sy-5,8,10,"#e8dcc0");
+    // Schematic lines
+    R(sx-3,sy-4,6,1,"#556655");
+    R(sx-3,sy-2,4,1,"#556655");
+    R(sx-3,sy,5,1,"#556655");
+    R(sx-3,sy+2,3,1,"#556655");
+    // Cyan-green circuit marks
+    R(sx+1,sy-3,2,1,C_BLUEPRINT);
+    R(sx-1,sy+1,2,1,C_BLUEPRINT);
+    R(sx+2,sy+3,1,1,C_BLUEPRINT);
+    // Rolled top edge
+    R(sx-5,sy-7,10,2,"#c4b490");
+    R(sx-4,sy-7,8,1,"#b0a080");
+  }
+}
+
 function drawInvincPickups(){
   for(var i=0;i<invincPickups.length;i++){
     var inp=invincPickups[i],sx=wxf(inp.x),sy=inp.y+Math.sin(inp.bob)*3;
@@ -6474,11 +7191,11 @@ function draw(){
     return;
   }
 
-  drawSky();drawClouds();drawMountains();drawNightDunes();drawCaveBackground();drawParallaxDunes();drawGround();drawTerrainDunes();drawGlowDomes();drawProps();
-  drawPlatforms();drawHeartPickups();drawPowerCells();drawInvincPickups();
+  drawSky();drawClouds();drawMountains();drawNightDunes();drawCaveBackground();drawIndustrialBG();drawParallaxDunes();drawGround();drawTerrainDunes();drawGlowDomes();drawProps();
+  drawPlatforms();drawHeartPickups();drawPowerCells();drawBlueprintFragments();drawInvincPickups();
   drawSandworms();drawEnemies();drawFliers();drawDroids();
   drawProjectiles();drawDrops();drawLasers();
-  drawBigworms();drawDaggers();drawSpiders();drawGooDrops();drawDrillbots();
+  drawBigworms();drawDaggers();drawSpiders();drawGooDrops();drawDrillbots();drawEchoBots();drawPatrolCopters();
   if(level===3||level===4) drawTorches();
   drawBossArenaWalls();drawBoss();drawBossProjectiles();drawPlayerLasers();
   drawWorkbench();drawRobot();if(dez.active) drawDez();if(cutsceneTargets.length>0) drawCutsceneTargets();drawParticles();drawScorePopups();
@@ -6647,6 +7364,12 @@ function draw(){
       ctx.fillStyle="#cc4400";
       ctx.font="8px monospace";
       ctx.fillText("FORGE TUNNELS",W/2,H/2+10);
+    } else if(level===5){
+      ctx.fillStyle="#44ffaa";
+      ctx.fillText("LEVEL 5",W/2,H/2-4);
+      ctx.fillStyle="#228866";
+      ctx.font="8px monospace";
+      ctx.fillText("ECHO GUILD LABS",W/2,H/2+10);
     }
     ctx.textAlign="left";
     ctx.globalAlpha=1;
@@ -6663,6 +7386,22 @@ function draw(){
     ctx.lineWidth=3;
     ctx.strokeText("FREQ MODE ACTIVATED",W/2,H/2+4);
     ctx.fillText("FREQ MODE ACTIVATED",W/2,H/2+4);
+    ctx.textAlign="left";
+    ctx.globalAlpha=1;
+  }
+
+  // Blueprint hint message
+  if(blueprintHintTimer>0){
+    var hintAlpha=Math.min(1,blueprintHintTimer*2);
+    ctx.globalAlpha=hintAlpha;
+    ctx.font="bold 7px 'Press Start 2P',monospace";
+    ctx.textAlign="center";
+    ctx.fillStyle=C_BLUEPRINT;
+    ctx.strokeStyle="#000";
+    ctx.lineWidth=3;
+    var hintText="COLLECT "+BLUEPRINT_REQUIRED+" BLUEPRINTS TO ADVANCE";
+    ctx.strokeText(hintText,W/2,H/2+4);
+    ctx.fillText(hintText,W/2,H/2+4);
     ctx.textAlign="left";
     ctx.globalAlpha=1;
   }
