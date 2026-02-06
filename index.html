@@ -2,7 +2,9 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>FREQ-2: Dezert Runner</title>
 <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
 <style>
@@ -10,7 +12,7 @@
 html,body{width:100%;height:100%;overflow:hidden;background:#1a1020;display:flex;align-items:center;justify-content:center;font-family:monospace;touch-action:none;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
 #wrap{position:relative;display:flex;align-items:center;justify-content:center}
 canvas{image-rendering:pixelated;image-rendering:crisp-edges;display:block}
-.mobile-btn{display:none;position:fixed;z-index:10;touch-action:manipulation;border:none;font:bold 18px monospace;border-radius:12px;opacity:0.9}
+.mobile-btn{display:none;position:fixed;z-index:10;touch-action:manipulation;border:none;font:bold 18px monospace;border-radius:12px;opacity:0.9;-webkit-tap-highlight-color:transparent}
 /* Fullscreen prompt for mobile */
 #fullscreen-prompt{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:linear-gradient(180deg,#1a1020 0%,#2a1530 50%,#1a1020 100%);z-index:150;flex-direction:column;align-items:center;justify-content:center;color:#ffcc88;font-family:'Press Start 2P',monospace;text-align:center;padding:20px}
 #fullscreen-prompt.visible{display:flex}
@@ -46,7 +48,7 @@ canvas{image-rendering:pixelated;image-rendering:crisp-edges;display:block}
 /* Pause button for mobile */
 #mobile-pause{display:none;position:fixed;top:28px;left:50%;transform:translateX(-50%);width:40px;height:24px;z-index:10;touch-action:manipulation;border:1px solid rgba(255,200,180,0.3);border-radius:4px;background:rgba(0,0,0,0.5);color:#ffcc99;font:bold 10px monospace;opacity:0.7}
 /* Joystick styles */
-#joystick-zone{display:none;position:fixed;left:10px;bottom:10px;width:130px;height:130px;z-index:10;touch-action:none}
+#joystick-zone{display:none;position:fixed;left:max(10px,env(safe-area-inset-left));bottom:max(10px,env(safe-area-inset-bottom));width:130px;height:130px;z-index:10;touch-action:none}
 #joystick-base{position:absolute;width:120px;height:120px;border-radius:50%;background:rgba(255,200,180,0.15);border:3px solid rgba(255,200,180,0.3)}
 #joystick-knob{position:absolute;width:50px;height:50px;border-radius:50%;background:rgba(255,200,180,0.5);border:2px solid rgba(255,200,180,0.7);left:35px;top:35px;transition:none}
 #overlay{position:absolute;top:0;left:0;width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;z-index:5}
@@ -478,6 +480,8 @@ function initAudio(){
   if(audioInitialized) return;
   try{
     audioCtx=new (window.AudioContext||window.webkitAudioContext)();
+    // Safari creates AudioContext in suspended state — resume on user gesture
+    if(audioCtx.state==="suspended") audioCtx.resume().catch(function(){});
     audioInitialized=true;
     // Load level music
     level1Music=new Audio("audio/level1.wav");
@@ -500,6 +504,8 @@ function initAudio(){
 
 function playLevelMusic(lvl){
   if(audioMuted) return;
+  // Resume AudioContext if Safari suspended it
+  if(audioCtx&&audioCtx.state==="suspended") audioCtx.resume().catch(function(){});
   stopLevelMusic();
   if(lvl===1&&level1Music){
     level1Music.currentTime=0;
@@ -536,6 +542,7 @@ function stopLevelMusic(){
 // SNES-style sound: richer than 8-bit, uses multiple oscillators and filters
 function playSfx(type){
   if(!audioCtx||audioMuted) return;
+  if(audioCtx.state==="suspended") audioCtx.resume().catch(function(){});
   var now=audioCtx.currentTime;
   var osc,osc2,gain,filter;
 
@@ -1106,15 +1113,41 @@ var overlay=document.getElementById("overlay");
 canvas.width=W;canvas.height=H;
 
 var isMobile="ontouchstart"in window||navigator.maxTouchPoints>0;
+var isIOS=/iPad|iPhone|iPod/.test(navigator.userAgent)||
+  (navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1);
+var isStandalone=window.navigator.standalone===true||
+  window.matchMedia("(display-mode: standalone)").matches;
 
 // Fullscreen handling for mobile
 var fullscreenPrompt=document.getElementById("fullscreen-prompt");
 var isEmbedded=window.self!==window.top;
 
+// iOS doesn't support Fullscreen API — adjust prompt text
+if(isMobile&&isIOS){
+  var fsBtn=document.getElementById("btn-fullscreen");
+  var fsHint=document.querySelector(".fs-hint");
+  if(isStandalone){
+    // Already running as home screen app — skip prompt entirely
+    fullscreenPrompt.classList.remove("visible");
+  } else if(isEmbedded){
+    fsBtn.textContent="OPEN GAME";
+    fsHint.textContent="Opens in a new tab";
+  } else {
+    fsBtn.textContent="TAP TO PLAY";
+    fsHint.innerHTML='For fullscreen: tap <b>Share</b> → <b>Add to Home Screen</b>';
+  }
+}
+
 function enterFullscreen(){
-  // On mobile in iframe, just open new tab immediately (iOS blocks async popups)
+  // On mobile in iframe, open new tab (iOS blocks async popups from non-gesture)
   if(isMobile && isEmbedded){
     window.open("https://game.dezertaudio.com/","_blank");
+    fullscreenPrompt.classList.remove("visible");
+    return;
+  }
+
+  // iOS has no Fullscreen API — just dismiss prompt and play
+  if(isIOS){
     fullscreenPrompt.classList.remove("visible");
     return;
   }
@@ -1143,21 +1176,25 @@ function enterFullscreen(){
 }
 
 document.getElementById("btn-fullscreen").addEventListener("click",enterFullscreen);
+// Also handle touchend for Safari (click can be delayed 300ms on some iOS versions)
+document.getElementById("btn-fullscreen").addEventListener("touchend",function(e){
+  e.preventDefault();enterFullscreen();
+},{passive:false});
 
-// Show fullscreen prompt on mobile
-if(isMobile){
+// Show fullscreen prompt on mobile (skip if already standalone)
+if(isMobile&&!isStandalone){
   fullscreenPrompt.classList.add("visible");
 }
 
-// Handle fullscreen exit
+// Handle fullscreen exit — don't re-prompt on iOS (no fullscreen to re-enter)
 document.addEventListener("fullscreenchange",function(){
   if(!document.fullscreenElement&&!document.webkitFullscreenElement){
-    if(isMobile) fullscreenPrompt.classList.add("visible");
+    if(isMobile&&!isIOS) fullscreenPrompt.classList.add("visible");
   }
 });
 document.addEventListener("webkitfullscreenchange",function(){
   if(!document.webkitFullscreenElement){
-    if(isMobile) fullscreenPrompt.classList.add("visible");
+    if(isMobile&&!isIOS) fullscreenPrompt.classList.add("visible");
   }
 });
 
@@ -1270,9 +1307,12 @@ var joystickCenter={x:60,y:60};
 var joystickValue={x:0,y:0};
 
 if(isMobile){
+  // Safe area offset for notch devices (iPhone X+)
+  var safeR="max(12px, env(safe-area-inset-right))";
+  var safeB="env(safe-area-inset-bottom, 0px)";
   // Only JUMP and DASH buttons on right side (big)
-  [{id:"mj",text:"JUMP",right:"12px",bottom:"70px",w:90,h:70},
-   {id:"md",text:"DASH",right:"12px",bottom:"8px",w:90,h:55}
+  [{id:"mj",text:"JUMP",right:safeR,bottom:"calc(70px + "+safeB+")",w:90,h:70},
+   {id:"md",text:"DASH",right:safeR,bottom:"calc(8px + "+safeB+")",w:90,h:55}
   ].forEach(function(d){
     var b=document.createElement("button");
     b.className="mobile-btn";b.textContent=d.text;b.style.display="block";
