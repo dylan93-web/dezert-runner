@@ -142,7 +142,9 @@ canvas{image-rendering:pixelated;image-rendering:crisp-edges;display:block}
 #cutscene-overlay{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:20;opacity:0;transition:opacity 0.3s}
 #cutscene-overlay.active{opacity:1;pointer-events:auto}
 #cutscene-vignette{position:absolute;top:0;left:0;width:100%;height:100%;background:radial-gradient(ellipse at center,transparent 50%,rgba(0,0,0,0.4) 100%);pointer-events:none}
-#speech-bubble{position:absolute;bottom:20px;left:50%;transform:translateX(-50%);min-width:300px;max-width:80%;background:#f8f8f0;border:4px solid #222;border-radius:8px;padding:12px 16px;font-family:'Press Start 2P',monospace;font-size:11px;line-height:1.8;color:#222;box-shadow:4px 4px 0 #000;display:none;z-index:25}
+#speech-bubble{position:absolute;min-width:200px;max-width:280px;background:#e8d8c0;border:3px solid #222;border-radius:8px;padding:8px 12px;font-family:'Press Start 2P',monospace;font-size:9px;line-height:1.6;color:#222;box-shadow:3px 3px 0 #000;display:none;z-index:25}
+#speech-bubble::after{content:'';position:absolute;bottom:-10px;left:20px;border-width:10px 8px 0 8px;border-style:solid;border-color:#222 transparent transparent transparent}
+#speech-bubble::before{content:'';position:absolute;bottom:-6px;left:22px;border-width:7px 6px 0 6px;border-style:solid;border-color:#e8d8c0 transparent transparent transparent;z-index:1}
 #speech-bubble.visible{display:block}
 #speech-speaker{color:#cc3366;margin-bottom:8px;font-size:10px}
 #speech-text{min-height:36px}
@@ -151,6 +153,18 @@ canvas{image-rendering:pixelated;image-rendering:crisp-edges;display:block}
 /* Level transition banner */
 #level-banner{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-family:'Press Start 2P',monospace;font-size:28px;color:#ffcc44;text-shadow:3px 3px 0 #000;z-index:15;opacity:0;transition:opacity 0.4s;pointer-events:none}
 #level-banner.visible{opacity:1}
+/* Upgrade panel - SNES style, transparent background */
+#upgrade-panel{position:absolute;top:0;left:0;width:100%;height:100%;background:transparent;display:none;flex-direction:column;align-items:center;justify-content:center;z-index:30;font-family:'Press Start 2P',monospace;image-rendering:pixelated}
+#upgrade-panel.visible{display:flex}
+#upgrade-title{color:#ffcc44;font-size:20px;margin-bottom:12px;text-shadow:3px 3px 0 #000,-1px -1px 0 #000,1px -1px 0 #000,-1px 1px 0 #000}
+#upgrade-subtitle{color:#70c0e8;font-size:12px;margin-bottom:20px;text-shadow:2px 2px 0 #000}
+#upgrade-options{display:flex;gap:16px;flex-wrap:wrap;justify-content:center}
+.upgrade-btn{background:#1a2a3a;border:6px solid #446688;padding:16px 14px;width:180px;cursor:pointer;text-align:center;box-shadow:4px 4px 0 #000;image-rendering:pixelated}
+.upgrade-btn:hover{background:#2a4a5a;border-color:#70c0e8}
+.upgrade-btn:active{box-shadow:2px 2px 0 #000;transform:translate(2px,2px)}
+.upgrade-icon{width:48px;height:48px;margin:0 auto 12px auto;image-rendering:pixelated}
+.upgrade-name{color:#ffcc44;font-size:12px;margin-bottom:10px;text-shadow:2px 2px 0 #000}
+.upgrade-desc{color:#70c0e8;font-size:9px;line-height:1.4;text-shadow:1px 1px 0 #000}
 </style>
 </head>
 <body>
@@ -197,6 +211,27 @@ canvas{image-rendering:pixelated;image-rendering:crisp-edges;display:block}
     </div>
   </div>
   <div id="level-banner"></div>
+  <div id="upgrade-panel">
+    <div id="upgrade-title">UPGRADE FREQ-BOT</div>
+    <div id="upgrade-subtitle">Choose your enhancement</div>
+    <div id="upgrade-options">
+      <button class="upgrade-btn" id="upgrade-shield">
+        <canvas class="upgrade-icon" id="icon-shield" width="48" height="48"></canvas>
+        <div class="upgrade-name">SHIELD SYSTEM</div>
+        <div class="upgrade-desc">Hearts give +1 extra. Tank build.</div>
+      </button>
+      <button class="upgrade-btn" id="upgrade-speed">
+        <canvas class="upgrade-icon" id="icon-speed" width="48" height="48"></canvas>
+        <div class="upgrade-name">LIGHTER BUILD</div>
+        <div class="upgrade-desc">Run faster. Max 4 hearts.</div>
+      </button>
+      <button class="upgrade-btn" id="upgrade-power">
+        <canvas class="upgrade-icon" id="icon-power" width="48" height="48"></canvas>
+        <div class="upgrade-name">OVERDRIVE CORE</div>
+        <div class="upgrade-desc">Power cells last longer.</div>
+      </button>
+    </div>
+  </div>
   <div id="overlay" class="active">
     <div id="scr-title" class="ov-panel">
       <div class="ov-title">FREQ-2</div>
@@ -268,16 +303,19 @@ var JUMP_VEL=-220;
 var MOVE_ACCEL=400;
 var MOVE_DECEL=500;
 var MAX_RUN=120;
+var BASE_MAX_RUN=120;
 var COYOTE_MS=100;
 var JUMP_BUFFER_MS=100;
 var DASH_SPEED=220;
 var DASH_DURATION=0.35;
 var MAX_LIVES=3;
+var BASE_MAX_LIVES=3;
 var LIVES_CAP=6;
+var BASE_LIVES_CAP=6;
 var INVULN_TIME=1.5;
 var SAFE_START=2.0;
-var SPAWN_BASE=2.6;
-var SPAWN_MIN=0.8;
+var SPAWN_BASE=2.9; // 10% slower spawns
+var SPAWN_MIN=0.9;
 var SPAWN_RAMP=0.003;
 var PLAYER_W=12,PLAYER_H=16;
 var HIT_SHRINK=3;
@@ -1291,7 +1329,8 @@ var level=1;
 var levelTransitionTimer=0;
 var spawnPauseTimer=0;
 var pitFallTimer=0,pitFallScroll=0;
-var bigwormTimer=0,spiderTimer=0;
+var bigwormTimer=0,spiderTimer=0,drillbotTimer=0;
+var drillbots=[]; // Level 4 drill robots
 var level3GraceTimer=0; // Invuln grace period during L3 transition
 var LEVEL_3_GRACE_TIME=2.5; // Total grace: pit fall + 0.5s after landing
 
@@ -1308,6 +1347,27 @@ var cutsceneTargetZoom=1.0;
 var cutsceneCamLock={x:0};
 var cutsceneDezTriggered=false;
 var cutsceneGracePeriod=0;
+var cutsceneRobotBeatUp=false;
+var cutsceneShotMode="NORMAL"; // "NORMAL" or "CLOSEUP"
+var cutsceneCloseupFlash=0; // Brief flash for hard cut effect
+var cutsceneCloseupSparks=[]; // Sparks during close-up
+var cutsceneCloseupArcs=[]; // Electrical arcs
+var cutscenePowerCellPulse=0; // Power cell pulse animation
+
+// Post-boss run tracking
+var postBossActive=false;
+var postBossDistanceStart=0;
+var POST_BOSS_CUTSCENE_DIST=500; // Distance to run after boss before cutscene
+
+// Workbench/Upgrade system
+var workbench={x:0,visible:false};
+var upgradeChosen="none"; // "none", "shield", "speed", "power"
+var upgradePanel=null;
+var repairAnimTimer=0;
+var dezWorking=false;
+var cutsceneCamPanTarget=null;
+var cutsceneWalkingToBench=false;
+var cutsceneBenchArrived=false;
 
 // Dialogue system
 var dialogueQueue=[];
@@ -1565,7 +1625,7 @@ function resetGame(){
   player.powerTimer=0;player.prevY=GROUND_Y;player.invincTimer=0;player.crouching=false;
   cam.x=0;enemies=[];projectiles=[];platforms=[];terrainDunes=[];particles=[];
   fliers=[];drops=[];droids=[];lasers=[];
-  bigworms=[];daggers=[];spiders=[];gooDrops=[];torches=[];
+  bigworms=[];daggers=[];spiders=[];gooDrops=[];torches=[];drillbots=[];
   heartPickups=[];powerCells=[];invincPickups=[];sandworms=[];scorePopups=[];
   score=0;distance=0;maxX=60;gameTime=0;spawnTimer=SAFE_START;shakeTimer=0;lastGenX=0;lastPowerX=0;lastHeartX=0;lastInvincX=0;
   stompFlash=0;stompCooldown=0;stompCombo=0;
@@ -1576,6 +1636,7 @@ function resetGame(){
   droidTimer=8+Math.random()*4;
   bigwormTimer=6+Math.random()*4;
   spiderTimer=4+Math.random()*3;
+  drillbotTimer=5+Math.random()*3;
   // Reset boss
   boss.active=false;boss.health=0;boss.state="inactive";boss.defeated=false;
   boss.timer=0;boss.hurtTimer=0;boss.flashTimer=0;boss.defeatTimer=0;
@@ -1589,11 +1650,31 @@ function resetGame(){
   // Reset cutscene state
   cutsceneDezTriggered=false;
   cutsceneActive=false;
+  cutsceneTargets=[];
   dez.active=false;
   dialogueActive=false;
   dialogueQueue=[];
+  cutsceneCamPanTarget=null;
+  cutsceneWalkingToBench=false;
+  cutsceneBenchArrived=false;
+  cutsceneShotMode="NORMAL";
+  cutsceneCloseupFlash=0;
+  cutsceneCloseupSparks=[];
+  cutsceneCloseupArcs=[];
+  cutsceneRepairAction=false;
+  postBossActive=false;
+  postBossDistanceStart=0;
   if(cutsceneOverlay) cutsceneOverlay.classList.remove("active");
   if(speechBubble) speechBubble.classList.remove("visible");
+  // Reset upgrade state
+  upgradeChosen="none";
+  MAX_RUN=BASE_MAX_RUN;
+  MAX_LIVES=BASE_MAX_LIVES;
+  LIVES_CAP=BASE_LIVES_CAP;
+  workbench.visible=false;
+  dezWorking=false;
+  repairAnimTimer=0;
+  if(upgradePanel) upgradePanel.classList.remove("visible");
   initWorld();
   generateWorld(cam.x+W+400);
   buildHearts(player.lives,Math.max(MAX_LIVES,player.lives));
@@ -1664,6 +1745,20 @@ function spawnSpider(){
     dropTimer:(1.5+Math.random()*SPIDER_DROP_INTERVAL)/speedMult,telegraphing:false,telegraphTimer:0});
 }
 
+function spawnDrillbot(){
+  if(spawnPauseTimer>0||level!==4) return;
+  // Fast drill robot that runs across the ground - faster than other robots
+  var sx=cam.x+W+30+Math.random()*40;
+  var speed=180+Math.random()*60; // Much faster than normal enemies
+  drillbots.push({
+    x:sx,y:GROUND_Y,
+    vx:-speed, // Running left fast
+    w:16,h:14,
+    animFrame:0,
+    animTimer:0
+  });
+}
+
 function spawnDust(x,y,count,color){
   for(var i=0;i<count;i++){
     particles.push({x:x,y:y,vx:(Math.random()-0.5)*30,vy:-Math.random()*25-5,
@@ -1679,9 +1774,10 @@ function spawnParticles(x,y,color,count){
 }
 
 function spawnScorePopup(x,y,value,combo){
-  var text="+"+value;
+  var total=value*combo;
+  var text="+"+total;
   var color="#ffcc00";
-  if(combo>1){text="+"+value+" x"+combo;color="#ff8844";}
+  if(combo>1){text="+"+total+" (x"+combo+")";color="#ff8844";}
   scorePopups.push({x:x,y:y,text:text,timer:1.2,color:color});
 }
 
@@ -1722,8 +1818,9 @@ function spawnBoss(){
 
   // === SPAWN BOSS ARENA PLATFORMS ===
   // Create two platforms on left and right for jumping onto worm
-  bossArenaLeft=cam.x+40;
-  bossArenaRight=cam.x+W-40;
+  // Arena is 3x bigger for more dodging room
+  bossArenaLeft=cam.x-W;
+  bossArenaRight=cam.x+W*2;
   var platY=GROUND_Y-25; // Platform height - good for jumping to worm
   var platW=35;
   // Left platform
@@ -2115,8 +2212,9 @@ function bossDefeated(){
       life:0.5+Math.random()*0.5,color:Math.random()<0.5?"#ff8844":"#ffcc44",size:2+Math.floor(Math.random()*2)});
   }
   playSfx("bossVictory");
-  // Trigger Dez cutscene after boss defeat
-  setTimeout(function(){triggerDezCutscene();},1500);
+  // Start post-boss distance tracking - cutscene triggers at 500 distance
+  postBossDistanceStart=player.x;
+  postBossActive=true;
 }
 
 // === CUTSCENE SYSTEM ===
@@ -2139,6 +2237,7 @@ function startCutscene(script){
   cutsceneTargetZoom=1.15;
   player.invuln=999; // Invulnerable during cutscene
   spawnPauseTimer=999;
+  shakeTimer=0; // Stop any screen shake
   // Clear projectiles for safety
   projectiles=[];lasers=[];daggers=[];gooDrops=[];drops=[];bossProjectiles=[];
   cutsceneOverlay.classList.add("active");
@@ -2147,6 +2246,11 @@ function startCutscene(script){
 function endCutscene(){
   cutsceneActive=false;
   cutsceneTargetZoom=1.0;
+  cutsceneShotMode="NORMAL";
+  cutsceneCloseupFlash=0;
+  cutsceneCloseupSparks=[];
+  cutsceneCloseupArcs=[];
+  cutsceneRepairAction=false;
   cutsceneOverlay.classList.remove("active");
   speechBubble.classList.remove("visible");
   dialogueActive=false;
@@ -2155,6 +2259,11 @@ function endCutscene(){
   spawnPauseTimer=2.0;
   cutsceneGracePeriod=2.0;
   dez.active=false;
+  workbench.visible=false;
+  dezWorking=false;
+  cutsceneCamPanTarget=null;
+  cutsceneWalkingToBench=false;
+  cutsceneBenchArrived=false;
 }
 
 function updateCutscene(dt){
@@ -2165,6 +2274,54 @@ function updateCutscene(dt){
   var zoomSpeed=2.0;
   if(cutsceneZoom<cutsceneTargetZoom) cutsceneZoom=Math.min(cutsceneTargetZoom,cutsceneZoom+zoomSpeed*dt);
   else if(cutsceneZoom>cutsceneTargetZoom) cutsceneZoom=Math.max(cutsceneTargetZoom,cutsceneZoom-zoomSpeed*dt);
+
+  // Camera pan during cutscene
+  if(cutsceneCamPanTarget!==null){
+    var panSpeed=80;
+    if(cam.x<cutsceneCamPanTarget) cam.x=Math.min(cutsceneCamPanTarget,cam.x+panSpeed*dt);
+    else if(cam.x>cutsceneCamPanTarget) cam.x=Math.max(cutsceneCamPanTarget,cam.x-panSpeed*dt);
+  }
+
+  // Walking to bench - both characters move together, camera follows
+  if(cutsceneWalkingToBench&&!cutsceneBenchArrived){
+    var walkSpeed=DEZ_SPEED*1.8; // Fast run to the bench
+    // Move both characters
+    dez.x+=walkSpeed*dt;
+    player.x+=walkSpeed*dt;
+    // Animate both (faster animation for running)
+    dez.animTimer+=dt;
+    if(dez.animTimer>0.08){dez.animTimer=0;dez.animFrame=(dez.animFrame+1)%4;}
+    player.animTimer+=dt;
+    if(player.animTimer>0.08){player.animTimer=0;player.animFrame=(player.animFrame+1)%4;}
+    // Camera follows smoothly
+    var targetCamX=player.x-W*0.35;
+    cam.x+=(targetCamX-cam.x)*0.1;
+    // Check if arrived at bench
+    if(dez.x>=workbench.x-20){
+      cutsceneBenchArrived=true;
+      cutsceneWalkingToBench=false;
+      dez.vx=0;
+      dez.animFrame=0;
+      player.animFrame=0;
+      dez.x=workbench.x-15;
+      player.x=workbench.x-40;
+      // Lock camera to show the bench
+      cam.x=workbench.x-W*0.6;
+      dezWorking=true;
+      repairAnimTimer=0;
+      // Start the plate removal + close-up sequence
+      startCloseupSequence();
+    }
+  } else if(dez.active&&dez.vx>0&&!cutsceneWalkingToBench){
+    // Normal Dez movement (running in at start)
+    player.animTimer+=dt;
+    if(player.animTimer>0.1){player.animTimer=0;player.animFrame=(player.animFrame+1)%4;}
+  }
+
+  // Repair animation timer
+  if(dezWorking){
+    repairAnimTimer+=dt;
+  }
 
   // Update dialogue typewriter
   if(dialogueActive&&!dialogueWaitingForContinue){
@@ -2193,13 +2350,112 @@ function updateCutscene(dt){
   // Update Dez
   updateDez(dt);
 
-  // Check if cutscene is done
-  if(cutsceneStepIndex>=cutsceneScript.length&&!dialogueActive){
+  // Check if cutscene is done (but not if upgrade panel is showing)
+  if(cutsceneStepIndex>=cutsceneScript.length&&!dialogueActive&&upgradeChosen!=="none"){
     endCutscene();
   }
+
+  // Update close-up sparks and arcs
+  if(cutsceneShotMode==="CLOSEUP"){
+    cutscenePowerCellPulse+=dt*4;
+    // Spawn sparks
+    if(Math.random()<0.3){
+      cutsceneCloseupSparks.push({
+        x:W/2-20+Math.random()*40,
+        y:H/2-10+Math.random()*20,
+        vx:(Math.random()-0.5)*60,
+        vy:(Math.random()-0.5)*40-20,
+        life:0.3+Math.random()*0.2
+      });
+    }
+    // Update sparks
+    for(var si=cutsceneCloseupSparks.length-1;si>=0;si--){
+      var sp=cutsceneCloseupSparks[si];
+      sp.x+=sp.vx*dt;sp.y+=sp.vy*dt;sp.vy+=100*dt;
+      sp.life-=dt;
+      if(sp.life<=0) cutsceneCloseupSparks.splice(si,1);
+    }
+    // Spawn electrical arcs occasionally
+    if(Math.random()<0.08){
+      cutsceneCloseupArcs.push({
+        x1:W/2-15+Math.random()*10,y1:H/2-5+Math.random()*10,
+        x2:W/2-15+Math.random()*30,y2:H/2-5+Math.random()*15,
+        life:0.08+Math.random()*0.06
+      });
+    }
+    // Update arcs
+    for(var ai=cutsceneCloseupArcs.length-1;ai>=0;ai--){
+      cutsceneCloseupArcs[ai].life-=dt;
+      if(cutsceneCloseupArcs[ai].life<=0) cutsceneCloseupArcs.splice(ai,1);
+    }
+  }
+
+  // Update close-up flash (hard cut effect)
+  if(cutsceneCloseupFlash>0) cutsceneCloseupFlash-=dt*8;
 }
 
-function showDialogue(speaker,text){
+// === CLOSE-UP SHOT SEQUENCE ===
+function startCloseupSequence(){
+  // Phase 1: Brief plate removal in normal view (0.5s)
+  setTimeout(function(){
+    if(!cutsceneActive) return;
+    showDialogue("DEZ","Let me take a look...",dez.x,dez.y-25);
+  },300);
+
+  // Phase 2: HARD CUT to close-up (after dialogue)
+  setTimeout(function(){
+    if(!cutsceneActive) return;
+    // Hard cut - instant switch, brief flash
+    cutsceneShotMode="CLOSEUP";
+    cutsceneCloseupFlash=1.0;
+    cutsceneCloseupSparks=[];
+    cutsceneCloseupArcs=[];
+    speechBubble.classList.remove("visible");
+    dialogueActive=false;
+  },2000);
+
+  // Phase 3: Close-up dialogue sequence
+  setTimeout(function(){
+    if(!cutsceneActive||cutsceneShotMode!=="CLOSEUP") return;
+    showCloseupDialogue("DEZ","They're after your cells. Not for power... for what's inside 'em.");
+  },2500);
+
+  setTimeout(function(){
+    if(!cutsceneActive||cutsceneShotMode!=="CLOSEUP") return;
+    showCloseupDialogue("DEZ","Essence. The part they can't make.");
+  },5500);
+
+  // Phase 4: Repair action beat
+  setTimeout(function(){
+    if(!cutsceneActive||cutsceneShotMode!=="CLOSEUP") return;
+    cutsceneRepairAction=true;
+  },8000);
+
+  setTimeout(function(){
+    if(!cutsceneActive||cutsceneShotMode!=="CLOSEUP") return;
+    showCloseupDialogue("DEZ","Alright... we rebuild. And we take it back.");
+  },9000);
+
+  // Phase 5: HARD CUT back to normal
+  setTimeout(function(){
+    if(!cutsceneActive) return;
+    cutsceneShotMode="NORMAL";
+    cutsceneCloseupFlash=1.0;
+    cutsceneRepairAction=false;
+    cutsceneRobotBeatUp=false;
+    dezWorking=false;
+    speechBubble.classList.remove("visible");
+    dialogueActive=false;
+    // Show upgrade panel
+    setTimeout(function(){
+      if(cutsceneActive) showUpgradePanel();
+    },500);
+  },12000);
+}
+
+var cutsceneRepairAction=false;
+
+function showCloseupDialogue(speaker,text){
   dialogueActive=true;
   dialogueSpeaker=speaker;
   dialogueText=text;
@@ -2210,6 +2466,39 @@ function showDialogue(speaker,text){
   speechSpeaker.textContent=speaker+":";
   speechTextEl.textContent="";
   speechContinue.style.display="none";
+  // Position at bottom center during close-up
+  speechBubble.style.left="50%";
+  speechBubble.style.top="auto";
+  speechBubble.style.bottom="20px";
+  speechBubble.style.transform="translateX(-50%)";
+  speechBubble.classList.add("visible");
+}
+
+function showDialogue(speaker,text,worldX,worldY){
+  dialogueActive=true;
+  dialogueSpeaker=speaker;
+  dialogueText=text;
+  dialogueDisplayed="";
+  dialogueCharIndex=0;
+  dialogueCharTimer=0;
+  dialogueWaitingForContinue=false;
+  speechSpeaker.textContent=speaker+":";
+  speechTextEl.textContent="";
+  speechContinue.style.display="none";
+
+  // Position bubble near speaker
+  if(worldX!==undefined&&worldY!==undefined){
+    var screenX=(worldX-cam.x)*(canvas.clientWidth/W);
+    var screenY=(worldY)*(canvas.clientHeight/H);
+    // Clamp to screen bounds
+    var bubbleW=220;
+    screenX=Math.max(10,Math.min(canvas.clientWidth-bubbleW-10,screenX-bubbleW/2));
+    screenY=Math.max(10,Math.min(canvas.clientHeight-80,screenY-60));
+    speechBubble.style.left=screenX+"px";
+    speechBubble.style.top=screenY+"px";
+    speechBubble.style.bottom="auto";
+    speechBubble.style.transform="none";
+  }
   speechBubble.classList.add("visible");
 }
 
@@ -2233,9 +2522,9 @@ function advanceDialogue(){
 // === DEZ NPC ===
 function spawnDez(){
   dez.active=true;
-  dez.x=cam.x+W+30;
+  dez.x=cam.x+W+30; // Start from RIGHT, off screen
   dez.y=GROUND_Y;
-  dez.vx=-DEZ_SPEED;
+  dez.vx=-DEZ_SPEED*1.5; // Run LEFT toward player
   dez.facing=-1;
   dez.animFrame=0;
   dez.shooting=false;
@@ -2247,13 +2536,16 @@ function spawnDez(){
 function updateDez(dt){
   if(!dez.active) return;
 
-  // Movement
+  // Skip normal movement if walking to bench (handled in updateCutscene)
+  if(cutsceneWalkingToBench) return;
+
+  // Movement (only for running in from the right at start)
   if(dez.vx!==0){
     dez.x+=dez.vx*dt;
     dez.animTimer+=dt;
     if(dez.animTimer>0.12){dez.animTimer=0;dez.animFrame=(dez.animFrame+1)%4;}
-    // Stop when reached center-ish
-    if(dez.x<cam.x+W*0.55){
+    // Stop when reached center-ish (only when running LEFT)
+    if(dez.vx<0&&dez.x<cam.x+W*0.55){
       dez.vx=0;
       dez.animFrame=0;
     }
@@ -2276,12 +2568,35 @@ function updateDez(dt){
     }
   }
 
-  // Update lasers
+  // Update lasers - travel toward target
   for(var i=dez.lasers.length-1;i>=0;i--){
     var l=dez.lasers[i];
-    l.x+=l.vx*dt;
+    // Update start position to follow Dez's gun
+    l.startX=dez.facing===1?dez.x+17:dez.x-12;
+    l.startY=dez.y-4;
+    if(!l.hit){
+      // Move toward target
+      var dx=l.targetX-l.x;
+      var dy=l.targetY-l.y;
+      var dist=Math.sqrt(dx*dx+dy*dy);
+      var speed=800; // Fast laser
+      if(dist<speed*dt){
+        // Hit target
+        l.x=l.targetX;
+        l.y=l.targetY;
+        l.hit=true;
+        // Explosion
+        spawnParticles(l.targetX,l.targetY,l.targetType==="spider"?"#88ff44":"#ff4444",14);
+        spawnParticles(l.targetX,l.targetY,"#ffaa00",8);
+        shakeTimer=0.12;
+        playSfx("enemyDie");
+      } else {
+        l.x+=dx/dist*speed*dt;
+        l.y+=dy/dist*speed*dt;
+      }
+    }
     l.life-=dt;
-    if(l.life<=0||l.x<cam.x-20) dez.lasers.splice(i,1);
+    if(l.life<=0) dez.lasers.splice(i,1);
   }
 }
 
@@ -2295,67 +2610,123 @@ function drawDez(){
   ctx.beginPath();ctx.ellipse(F(sx),F(sy+2),6,2,0,0,6.29);ctx.fill();
   ctx.globalAlpha=1;
 
-  // Dez - distinct human character (darker colors, red accents)
-  var skinTone="#d4a574";
-  var hairColor="#1a1a1a";
-  var jacketDark="#2a1a1a";
-  var jacketMid="#4a2a2a";
-  var jacketLight="#6a3a3a";
-  var pantsColor="#1a1a2a";
-  var accentRed="#cc3333";
+  // DEZ - shorter build, dark hair, light mustache, dark chin hair, brown shirt
+  var skinTone="#e8c4a0";
+  var skinShade="#d4a080";
+  var hairColor="#1a1008"; // Dark hair
+  var hairHighlight="#2a2018";
+  var mustacheColor="#6a5040"; // Light brown mustache
+  var chinHairColor="#2a1a10"; // Darker chin hair - closer to black
+  var shirtColor="#5a4a40"; // Brown/gray shirt
+  var shirtLight="#6a5a50";
+  var shirtDark="#4a3a30";
+  var pantsColor="#1a1a1a";
 
-  // Leg animation
+  // Leg animation (smaller movement for shorter legs)
   var lf=0,rf=0;
   if(dez.vx!==0){
     if(frame===1){lf=-2;rf=1;}else if(frame===3){lf=1;rf=-2;}
   }
 
-  // Head (human)
-  ctx.fillStyle=skinTone;
-  ctx.beginPath();ctx.arc(F(sx),F(sy-16),5,0,6.29);ctx.fill();
-  // Hair
+  // === HAIR (dark, shorter - not long) ===
   ctx.fillStyle=hairColor;
-  ctx.beginPath();ctx.arc(F(sx),F(sy-18),4,Math.PI,0);ctx.fill();
-  R(sx-4,sy-18,8,2,hairColor);
+  // Hair top/volume
+  ctx.beginPath();ctx.ellipse(F(sx),F(sy-21),5,3,0,0,6.29);ctx.fill();
+  R(sx-5,sy-21,10,4,hairColor);
+  // Shorter sides - just covering ears, not flowing down
+  R(sx-5,sy-18,2,4,hairColor); // Left side short
+  R(sx+3,sy-18,2,4,hairColor); // Right side short
+  // Hair texture/highlights
+  R(sx-3,sy-23,2,3,hairHighlight);
+  R(sx+1,sy-22,2,2,hairHighlight);
+
+  // === HEAD/FACE (smaller) ===
+  ctx.fillStyle=skinTone;
+  ctx.beginPath();ctx.ellipse(F(sx),F(sy-16),4,5,0,0,6.29);ctx.fill();
+  R(sx+1,sy-19,2,3,skinShade);
+
+  // === FACIAL FEATURES ===
+  // Eyebrows
+  R(sx-2,sy-19,2,1,"#3a2a1a");
+  R(sx+1,sy-19,2,1,"#3a2a1a");
   // Eyes
-  R(sx-3,sy-16,2,1,"#fff");R(sx+1,sy-16,2,1,"#fff");
-  R(sx-2,sy-16,1,1,"#222");R(sx+2,sy-16,1,1,"#222");
+  R(sx-2,sy-17,1,1,"#1a1008");
+  R(sx+1,sy-17,1,1,"#1a1008");
+  // Nose hint
+  R(sx,sy-15,1,1,skinShade);
+  // Mustache - light brown (just above lip)
+  R(sx-2,sy-14,4,1,mustacheColor);
+  // Chin hair only - darker, more visible (no cheek hair)
+  R(sx-1,sy-12,2,2,chinHairColor);
 
-  // Jacket/torso
-  R(sx-5,sy-12,10,9,jacketDark);
-  R(sx-4,sy-11,8,7,jacketMid);
-  R(sx-3,sy-10,6,5,jacketLight);
-  // Red stripe
-  R(sx-1,sy-11,2,6,accentRed);
+  // === BROWN SHIRT (smaller) ===
+  R(sx-6,sy-10,12,10,shirtColor);
+  R(sx-5,sy-9,10,8,shirtLight);
+  R(sx-4,sy-8,8,6,shirtColor);
+  R(sx+1,sy-8,3,5,shirtDark);
+  // Collar
+  R(sx-3,sy-11,6,2,shirtDark);
+  R(sx-2,sy-10,4,1,shirtColor);
 
-  // Arms
+  // === ARMS (shorter) ===
   var ao=frame===1?-1:frame===3?1:0;
-  R(sx-7,sy-11+ao,3,7,jacketMid);
-  R(sx+4,sy-11-ao,3,7,jacketMid);
+  // Short sleeves
+  R(sx-7,sy-9+ao,2,3,shirtColor);
+  R(sx+5,sy-9-ao,2,3,shirtColor);
+  // Bare forearms
+  R(sx-7,sy-6+ao,2,4,skinTone);
+  R(sx+5,sy-6-ao,2,4,skinTone);
   // Hands
-  R(sx-6,sy-5+ao,2,2,skinTone);
-  R(sx+4,sy-5-ao,2,2,skinTone);
+  R(sx-7,sy-2+ao,2,2,skinTone);
+  R(sx+5,sy-2-ao,2,2,skinTone);
 
-  // Gun in left hand
-  R(sx-10,sy-7,6,3,"#333");
-  R(sx-12,sy-6,3,1,accentRed);
+  // === GUN in hand ===
+  var gunX=dez.facing===1?sx+7:sx-10;
+  var gunY=sy-3+ao;
+  R(gunX,gunY,6,2,"#2a2a2a");
+  R(gunX+(dez.facing===1?4:-1),gunY,2,1,"#ff3322");
+  R(gunX+(dez.facing===1?1:4),gunY+1,2,2,"#1a1a1a");
 
-  // Pants/legs
-  R(sx-4,sy-4+lf,3,6,pantsColor);
-  R(sx+1,sy-4+rf,3,6,pantsColor);
-  // Boots
-  R(sx-5,sy+1+lf,4,2,"#222");
-  R(sx+1,sy+1+rf,4,2,"#222");
+  // === DARK PANTS/LEGS (shorter) ===
+  R(sx-4,sy-1,3,5+Math.abs(lf),pantsColor);
+  R(sx+1,sy-1,3,5+Math.abs(rf),pantsColor);
+  R(sx-4,sy+lf,3,1,"#0a0a0a");
+  R(sx+1,sy+rf,3,1,"#0a0a0a");
+  // Shoes
+  R(sx-5,sy+3+lf,4,2,"#1a1a1a");
+  R(sx+1,sy+3+rf,4,2,"#1a1a1a");
+  R(sx-5,sy+4+lf,4,1,"#333");
+  R(sx+1,sy+4+rf,4,1,"#333");
 
-  // Draw Dez's lasers
-  ctx.fillStyle="#ff3333";
+  // Draw Dez's lasers - red beam from gun to current position
   for(var i=0;i<dez.lasers.length;i++){
     var l=dez.lasers[i];
-    var lsx=wxf(l.x);
-    ctx.fillRect(F(lsx-6),F(l.y-1),12,3);
-    ctx.globalAlpha=0.5;
-    ctx.fillRect(F(lsx-8),F(l.y-2),16,5);
+    if(l.hit) continue; // Don't draw after hit
+    var startSX=wxf(l.startX);
+    var startSY=l.startY;
+    var endSX=wxf(l.x);
+    var endSY=l.y;
+    // Glow
+    ctx.strokeStyle="#ff6644";
+    ctx.lineWidth=5;
+    ctx.globalAlpha=0.4;
+    ctx.beginPath();
+    ctx.moveTo(F(startSX),F(startSY));
+    ctx.lineTo(F(endSX),F(endSY));
+    ctx.stroke();
+    // Core beam
+    ctx.strokeStyle="#ff2222";
+    ctx.lineWidth=2;
     ctx.globalAlpha=1;
+    ctx.beginPath();
+    ctx.moveTo(F(startSX),F(startSY));
+    ctx.lineTo(F(endSX),F(endSY));
+    ctx.stroke();
+    // Bright tip
+    ctx.fillStyle="#ffaa00";
+    ctx.beginPath();
+    ctx.arc(F(endSX),F(endSY),3,0,6.29);
+    ctx.fill();
   }
 }
 
@@ -2365,32 +2736,301 @@ function showLevelBanner(text,duration){
   setTimeout(function(){levelBanner.classList.remove("visible");},duration||2000);
 }
 
+function drawWorkbench(){
+  if(!workbench.visible) return;
+  var sx=wxf(workbench.x),sy=GROUND_Y;
+
+  // Workbench table
+  var tableColor="#5a4030";
+  var tableDark="#4a3020";
+  var tableLight="#6a5040";
+  var metalColor="#556677";
+  var metalLight="#667788";
+
+  // Table legs
+  R(sx-25,sy-15,4,20,tableDark);
+  R(sx+21,sy-15,4,20,tableDark);
+
+  // Table top
+  R(sx-28,sy-20,56,6,tableColor);
+  R(sx-26,sy-19,52,2,tableLight);
+  R(sx-26,sy-16,52,2,tableDark);
+
+  // Tools on bench
+  R(sx-20,sy-25,8,5,metalColor); // Toolbox
+  R(sx-19,sy-24,6,3,metalLight);
+  R(sx-16,sy-27,2,2,"#ff4422"); // Red handle
+
+  // Wrench
+  R(sx-5,sy-23,12,2,metalColor);
+  R(sx-6,sy-25,3,4,metalColor);
+  R(sx+5,sy-24,3,3,metalColor);
+
+  // Soldering iron
+  R(sx+12,sy-26,3,8,"#2a2a2a");
+  R(sx+13,sy-26,1,6,"#444");
+  R(sx+12,sy-19,3,1,"#ff6622"); // Hot tip glow
+
+  // Lamp/light
+  R(sx+22,sy-40,3,20,"#3a3a3a");
+  ctx.fillStyle="#ffee88";
+  ctx.globalAlpha=0.3;
+  ctx.beginPath();ctx.arc(F(sx+23),F(sy-42),8,0,6.29);ctx.fill();
+  ctx.globalAlpha=1;
+  R(sx+19,sy-45,8,5,"#4a4a4a");
+  R(sx+20,sy-44,6,3,"#ffdd66");
+
+  // Sparks if Dez is working
+  if(dezWorking){
+    var sparkPhase=Math.floor(repairAnimTimer*10)%3;
+    if(sparkPhase===0){
+      ctx.fillStyle="#ffff44";
+      R(sx-5,sy-28,1,1,"#ffff44");
+      R(sx-3,sy-30,1,1,"#ffaa22");
+      R(sx-7,sy-27,1,1,"#ff6622");
+    }
+  }
+}
+
+function drawUpgradeIcons(){
+  // Shield icon - 8-bit shield
+  var shieldCanvas=document.getElementById("icon-shield");
+  var sc=shieldCanvas.getContext("2d");
+  sc.imageSmoothingEnabled=false;
+  sc.fillStyle="#70c0e8";
+  // Shield shape
+  sc.fillRect(12,4,24,8);
+  sc.fillRect(8,8,32,4);
+  sc.fillRect(8,12,32,12);
+  sc.fillRect(12,24,24,8);
+  sc.fillRect(16,32,16,8);
+  sc.fillRect(20,40,8,4);
+  // Highlight
+  sc.fillStyle="#90e0ff";
+  sc.fillRect(12,8,8,16);
+  sc.fillRect(16,6,4,2);
+  // Dark edge
+  sc.fillStyle="#4080a0";
+  sc.fillRect(32,12,4,12);
+  sc.fillRect(28,24,4,8);
+  // Center emblem
+  sc.fillStyle="#ffcc44";
+  sc.fillRect(20,14,8,8);
+  sc.fillStyle="#ff8844";
+  sc.fillRect(22,16,4,4);
+
+  // Speed icon - 8-bit lightning bolt
+  var speedCanvas=document.getElementById("icon-speed");
+  var lc=speedCanvas.getContext("2d");
+  lc.imageSmoothingEnabled=false;
+  lc.fillStyle="#ffcc44";
+  // Lightning bolt shape
+  lc.fillRect(28,2,8,4);
+  lc.fillRect(24,6,8,4);
+  lc.fillRect(20,10,8,4);
+  lc.fillRect(16,14,12,4);
+  lc.fillRect(20,18,16,4);
+  lc.fillRect(16,22,8,4);
+  lc.fillRect(12,26,8,4);
+  lc.fillRect(8,30,8,4);
+  lc.fillRect(4,34,8,4);
+  lc.fillRect(8,38,8,6);
+  // Bright highlight
+  lc.fillStyle="#ffee88";
+  lc.fillRect(28,4,4,2);
+  lc.fillRect(24,8,4,2);
+  lc.fillRect(28,20,4,2);
+  // Dark edge
+  lc.fillStyle="#cc8800";
+  lc.fillRect(12,28,4,2);
+  lc.fillRect(8,32,4,2);
+
+  // Power icon - 8-bit flame/energy core
+  var powerCanvas=document.getElementById("icon-power");
+  var pc=powerCanvas.getContext("2d");
+  pc.imageSmoothingEnabled=false;
+  // Outer flame
+  pc.fillStyle="#ff4422";
+  pc.fillRect(20,4,8,4);
+  pc.fillRect(16,8,16,4);
+  pc.fillRect(12,12,24,8);
+  pc.fillRect(8,20,32,12);
+  pc.fillRect(12,32,24,8);
+  pc.fillRect(16,40,16,4);
+  // Inner flame
+  pc.fillStyle="#ff8844";
+  pc.fillRect(20,12,8,4);
+  pc.fillRect(16,16,16,8);
+  pc.fillRect(12,24,24,8);
+  pc.fillRect(16,32,16,4);
+  // Core
+  pc.fillStyle="#ffcc44";
+  pc.fillRect(20,20,8,8);
+  pc.fillRect(16,24,16,4);
+  // Bright center
+  pc.fillStyle="#ffee88";
+  pc.fillRect(22,22,4,4);
+}
+
+function showUpgradePanel(){
+  upgradePanel=document.getElementById("upgrade-panel");
+  upgradePanel.classList.add("visible");
+  drawUpgradeIcons();
+
+  // Setup button handlers
+  document.getElementById("upgrade-shield").onclick=function(){selectUpgrade("shield");};
+  document.getElementById("upgrade-speed").onclick=function(){selectUpgrade("speed");};
+  document.getElementById("upgrade-power").onclick=function(){selectUpgrade("power");};
+}
+
+function selectUpgrade(type){
+  upgradeChosen=type;
+  upgradePanel.classList.remove("visible");
+
+  // Apply upgrade effects
+  if(type==="shield"){
+    // Hearts give +2 per pickup, higher max capacity
+    LIVES_CAP=8;
+    player.lives=Math.min(LIVES_CAP,player.lives+1); // Bonus heart on upgrade
+  } else if(type==="speed"){
+    // Faster run, but max 4 hearts
+    LIVES_CAP=4;
+    if(player.lives>4) player.lives=4;
+    MAX_RUN=BASE_MAX_RUN*1.3; // 30% faster
+  } else if(type==="power"){
+    // Power cells last 50% longer - handled in pickup logic
+    player.powerTimer=3.0; // Start with some power as bonus
+  }
+
+  // Transition to Level 4
+  cutsceneRobotBeatUp=false;
+  level=4;
+  playLevelMusic(4);
+  showLevelBanner("LEVEL 4: FORGE TUNNELS",2500);
+  hudLevel.textContent="LVL 4";
+  hudLevel.style.color="#ff6622";
+  buildHearts(player.lives,MAX_LIVES);
+
+  // End the cutscene
+  endCutscene();
+}
+
+function drawCutsceneTargets(){
+  for(var i=0;i<cutsceneTargets.length;i++){
+    var t=cutsceneTargets[i];
+    if(!t.alive) continue;
+    var sx=wxf(t.x),sy=t.y;
+    if(t.type==="spider"){
+      // Ceiling spider - hanging down
+      ctx.fillStyle="#3a5040";
+      // Body
+      ctx.beginPath();ctx.arc(F(sx),F(sy),5,0,6.29);ctx.fill();
+      ctx.fillStyle="#2a3830";
+      ctx.beginPath();ctx.arc(F(sx),F(sy-1),4,0,6.29);ctx.fill();
+      // Legs
+      ctx.strokeStyle="#2a3830";ctx.lineWidth=1;
+      ctx.beginPath();
+      ctx.moveTo(sx-4,sy);ctx.lineTo(sx-8,sy+5);
+      ctx.moveTo(sx+4,sy);ctx.lineTo(sx+8,sy+5);
+      ctx.moveTo(sx-3,sy-2);ctx.lineTo(sx-7,sy-6);
+      ctx.moveTo(sx+3,sy-2);ctx.lineTo(sx+7,sy-6);
+      ctx.stroke();
+      // Eyes
+      R(sx-2,sy-2,2,2,"#88ff44");R(sx+1,sy-2,2,2,"#88ff44");
+      // Thread to ceiling
+      ctx.strokeStyle="#666";
+      ctx.beginPath();ctx.moveTo(sx,sy-5);ctx.lineTo(sx,0);ctx.stroke();
+    } else {
+      // Droid on ground
+      ctx.fillStyle="#cc3333";
+      // Body
+      R(sx-5,sy-10,10,8,"#aa2222");
+      R(sx-4,sy-9,8,6,"#cc3333");
+      // Eye
+      R(sx-2,sy-8,4,2,"#ffff00");
+      // Legs
+      R(sx-4,sy-3,3,4,"#882222");
+      R(sx+1,sy-3,3,4,"#882222");
+    }
+  }
+}
+
 // === DEZ CUTSCENE SCRIPT ===
+// Cutscene enemies for Dez to shoot
+var cutsceneTargets=[];
+
+function spawnCutsceneEnemies(){
+  cutsceneTargets=[];
+  // Spread enemies from right to left - Dez runs right to left shooting
+  var baseX=cam.x;
+  cutsceneTargets.push({type:"spider",x:baseX+W-40,y:22,alive:true}); // Ceiling spider 1 (far right, first shot)
+  cutsceneTargets.push({type:"droid",x:baseX+W/2+20,y:GROUND_Y-8,alive:true}); // Ground droid (middle)
+  cutsceneTargets.push({type:"spider",x:baseX+W/2-40,y:18,alive:true}); // Ceiling spider 2 (left of center)
+}
+
+function dezShoot(targetIndex){
+  if(targetIndex>=cutsceneTargets.length) return;
+  var t=cutsceneTargets[targetIndex];
+  if(!t.alive) return;
+  t.alive=false;
+  playSfx("playerLaser");
+  // Muzzle flash from gun - position based on facing
+  var gunX=dez.facing===1?dez.x+17:dez.x-12;
+  var gunY=dez.y-4;
+  spawnParticles(gunX,gunY,"#ffaa00",6);
+  spawnParticles(gunX,gunY,"#ff6622",3);
+  // Visible laser beam to target
+  dez.lasers.push({
+    x:gunX,y:gunY,
+    targetX:t.x,targetY:t.y,
+    startX:gunX,startY:gunY,
+    life:0.4,
+    hit:false,
+    targetType:t.type
+  });
+}
+
 function triggerDezCutscene(){
   if(cutsceneDezTriggered) return;
   cutsceneDezTriggered=true;
 
+  // Clear existing enemies, spawn cutscene targets
+  enemies=[];droids=[];spiders=[];bigworms=[];
+  spawnCutsceneEnemies();
+
+  // Make robot look beat up during cutscene
+  cutsceneRobotBeatUp=true;
+
+  // Setup workbench position to the right
+  workbench.x=cam.x+W*0.6+100; // Position workbench closer to the right
+  cutsceneWalkingToBench=false;
+  cutsceneBenchArrived=false;
+  workbench.visible=true;
+
   var script=[
-    {t:0,action:function(){spawnDez();}},
-    {t:1.2,action:function(){dez.vx=0;dez.shooting=true;}},
-    {t:2.5,action:function(){dez.shooting=false;}},
-    {t:3.0,action:function(){showDialogue("DEZ","...I don't know buddy, you're not looking too good.");}},
-    {t:3.1,waitDialogue:true,action:function(){}},
-    {t:3.2,action:function(){showDialogue("DEZ","You've been running through hell.");}},
-    {t:3.3,waitDialogue:true,action:function(){}},
-    {t:3.4,action:function(){showDialogue("FREQ-BOT","*weak chirp*");}},
-    {t:3.5,waitDialogue:true,action:function(){}},
-    {t:3.6,action:function(){showDialogue("DEZ","I'm here. We rebuild.");}},
-    {t:3.7,waitDialogue:true,action:function(){}},
-    {t:4.0,action:function(){
-      cutsceneTargetZoom=1.0;
-      // Transition to Level 4
-      level=4;
-      playLevelMusic(4);
-      showLevelBanner("LEVEL 4: FORGE TUNNELS",2500);
-      hudLevel.textContent="LVL 4";
-      hudLevel.style.color="#ff6622";
-    }}
+    // Brief freeze - dramatic pause, enemies already spawned
+    {t:0.8,action:function(){spawnDez();}}, // Dez runs in from the RIGHT
+    // Dez shoots while running left - boom boom boom
+    {t:1.1,action:function(){dezShoot(0);}}, // Spider 1 (far right)
+    {t:1.4,action:function(){dezShoot(1);}}, // Droid (middle)
+    {t:1.7,action:function(){dezShoot(2);}}, // Spider 2 (left)
+    {t:2.0,action:function(){dez.vx=0;cutsceneTargets=[];}}, // Dez stops near player
+    {t:2.5,action:function(){showDialogue("DEZ","Hey buddy, you're not looking too good.",dez.x,dez.y-25);}},
+    {t:2.6,waitDialogue:true,action:function(){}},
+    {t:2.7,action:function(){showDialogue("FREQ-BOT","*weak chirp*",player.x,player.y-30);}},
+    {t:2.8,waitDialogue:true,action:function(){}},
+    {t:2.9,action:function(){showDialogue("DEZ","It's okay. I'm here.",dez.x,dez.y-25);}},
+    {t:3.0,waitDialogue:true,action:function(){}},
+    {t:3.1,action:function(){showDialogue("DEZ","I'm going to repair you.",dez.x,dez.y-25);}},
+    {t:3.2,waitDialogue:true,action:function(){}},
+    // Walk to workbench together
+    {t:3.5,action:function(){
+      dez.facing=1;
+      player.facing=1;
+      cutsceneWalkingToBench=true; // Movement handled in updateCutscene
+    }},
+    // These will be triggered by position check in updateCutscene, not by time
+    {t:99,action:function(){}} // Placeholder - actual stop handled by walk logic
   ];
 
   startCutscene(script);
@@ -2420,6 +3060,44 @@ document.addEventListener("keydown",function(e){
     if(e.code==="ArrowDown"||e.code==="KeyS") held.down=true;
     if(e.code==="ShiftLeft"||e.code==="ShiftRight") held.dash=true;
     if(e.code==="Enter"){state="paused";showScreen("paused");}
+    // DEBUG: Press C to test cutscene (remove before release)
+    if(e.code==="KeyC"){
+      // Reset state for clean cutscene testing
+      cutsceneDezTriggered=false;
+      cutsceneRobotBeatUp=false;
+      upgradeChosen="none";
+      cutsceneCamPanTarget=null;
+      cutsceneWalkingToBench=false;
+      cutsceneBenchArrived=false;
+      cutsceneShotMode="NORMAL";
+      cutsceneCloseupFlash=0;
+      cutsceneCloseupSparks=[];
+      cutsceneCloseupArcs=[];
+      cutsceneRepairAction=false;
+      workbench.visible=false;
+      dezWorking=false;
+      player.lives=Math.max(player.lives,1);
+      player.y=GROUND_Y;
+      player.vy=0;
+      player.onGround=true;
+      boss.active=false;
+      boss.defeated=true;
+      bossSpawned=true;
+      level=3;
+      triggerDezCutscene();
+    }
+    // DEBUG: Press B to test boss fight (remove before release)
+    if(e.code==="KeyB"){
+      // Set up for boss fight in Level 3
+      level=3;
+      bossSpawned=false;
+      boss.active=false;
+      boss.defeated=false;
+      cutsceneDezTriggered=false;
+      cutsceneActive=false;
+      enemies=[];droids=[];spiders=[];bigworms=[];
+      spawnBoss();
+    }
   } else if(state==="paused"){
     if(e.code==="Enter"){state="playing";showScreen("playing");}
   }
@@ -2581,9 +3259,18 @@ function doStomp(entityX,entityY,entityTop,scoreBonus){
 // === UPDATE ===
 function update(dt){
   if(state!=="playing") return;
-  // Safety check - always trigger game over if lives depleted
-  if(player.lives<=0&&state==="playing"){gameOver();return;}
+  // Safety check - always trigger game over if lives depleted (but not during cutscene)
+  if(player.lives<=0&&state==="playing"&&!cutsceneActive){gameOver();return;}
   gameTime+=dt;shimmerOffset+=dt;
+
+  // Freeze player during cutscene - only update shimmer/timers
+  if(cutsceneActive){
+    player.vx=0;
+    player.vy=0;
+    player.y=GROUND_Y;
+    player.onGround=true;
+    return; // Skip all other updates during cutscene
+  }
 
   player.prevY=player.y;
 
@@ -2749,10 +3436,13 @@ function update(dt){
   }
 
   var screenX=player.x-cam.x;
-  // Lock camera during boss fight
-  if(!(boss.active&&!boss.defeated)){
-    if(screenX>CAM_RIGHT_MARGIN) cam.x=player.x-CAM_RIGHT_MARGIN;
-    else if(screenX<CAM_LEFT_MARGIN) cam.x=player.x-CAM_LEFT_MARGIN;
+  // Camera follows player (including during boss fight)
+  if(screenX>CAM_RIGHT_MARGIN) cam.x=player.x-CAM_RIGHT_MARGIN;
+  else if(screenX<CAM_LEFT_MARGIN) cam.x=player.x-CAM_LEFT_MARGIN;
+  // Clamp camera to boss arena if active
+  if(boss.active&&!boss.defeated){
+    if(cam.x<bossArenaLeft) cam.x=bossArenaLeft;
+    if(cam.x+W>bossArenaRight) cam.x=bossArenaRight-W;
   }
   if(cam.x<0) cam.x=0;
 
@@ -2760,6 +3450,15 @@ function update(dt){
   if(player.x>maxX&&!(boss.active&&!boss.defeated)){
     var gained=Math.floor((player.x-maxX)/DIST_PER_POINT);
     if(gained>0){distance+=gained;score+=gained;maxX+=gained*DIST_PER_POINT;}
+  }
+
+  // Check for post-boss cutscene trigger (500 distance after boss defeat)
+  if(postBossActive&&!cutsceneDezTriggered){
+    var postBossDist=player.x-postBossDistanceStart;
+    if(postBossDist>=POST_BOSS_CUTSCENE_DIST){
+      postBossActive=false;
+      triggerDezCutscene();
+    }
   }
 
   var canJump=player.onGround||player.coyoteTimer>0;
@@ -2795,8 +3494,15 @@ function update(dt){
 
   generateWorld(cam.x+W+500);
 
+  // Speed-based spawn scaling: spawn faster when running fast to maintain density
+  // Base speed is ~60-80px/s, max run is 120-150px/s
+  var playerSpeed=Math.abs(player.vx);
+  var baseSpeed=80; // Reference speed for normal spawning
+  var speedFactor=Math.max(1,playerSpeed/baseSpeed); // 1.0 when slow, 1.5+ when fast
+  var spawnDt=dt*speedFactor;
+
   // Spawning based on level (Level 3 cave has no ships/sandworms)
-  spawnTimer-=dt;
+  spawnTimer-=spawnDt;
   if(spawnTimer<=0){
     spawnTimer=Math.max(SPAWN_BASE-gameTime*SPAWN_RAMP,SPAWN_MIN);
     if(level===1){
@@ -2811,7 +3517,7 @@ function update(dt){
 
   // Sandworms only in Level 1 and 2 (surface levels)
   if(gameTime>SAFE_START&&level!==3){
-    wormTimer-=dt;
+    wormTimer-=spawnDt;
     if(wormTimer<=0){
       wormTimer=WORM_MIN_INTERVAL+Math.random()*(WORM_MAX_INTERVAL-WORM_MIN_INTERVAL);
       wormTimer=Math.max(8,wormTimer-gameTime*0.05);
@@ -2821,14 +3527,14 @@ function update(dt){
 
   // Level 2 enemies
   if(level===2){
-    flierTimer-=dt;
+    flierTimer-=spawnDt;
     if(flierTimer<=0){
-      flierTimer=4+Math.random()*4;
+      flierTimer=4.4+Math.random()*4.4; // 10% slower
       spawnFlier();
     }
-    droidTimer-=dt;
+    droidTimer-=spawnDt;
     if(droidTimer<=0){
-      droidTimer=6+Math.random()*5;
+      droidTimer=6.6+Math.random()*5.5; // 10% slower
       spawnDroid();
     }
   }
@@ -2842,21 +3548,29 @@ function update(dt){
     if(level===4) difficultyMult*=1.25; // Level 4 is 25% harder
     var spawnMult=1/difficultyMult; // Faster spawns = shorter timers
 
-    bigwormTimer-=dt;
+    bigwormTimer-=spawnDt;
     if(bigwormTimer<=0){
-      bigwormTimer=(2.0+Math.random()*1.5)*spawnMult;
+      bigwormTimer=(2.2+Math.random()*1.7)*spawnMult; // 10% slower
       spawnBigworm();
     }
-    spiderTimer-=dt;
+    spiderTimer-=spawnDt;
     if(spiderTimer<=0){
-      spiderTimer=(1.5+Math.random()*1.5)*spawnMult;
+      spiderTimer=(1.7+Math.random()*1.7)*spawnMult; // 10% slower
       spawnSpider();
     }
     // Red droids with increased fire rate - spawn more often
-    droidTimer-=dt;
+    droidTimer-=spawnDt;
     if(droidTimer<=0){
-      droidTimer=(2.5+Math.random()*2)*spawnMult;
+      droidTimer=(2.8+Math.random()*2.2)*spawnMult; // 10% slower
       spawnDroid();
+    }
+    // Level 4 only: Drill robots from the ground
+    if(level===4){
+      drillbotTimer-=spawnDt;
+      if(drillbotTimer<=0){
+        drillbotTimer=(3.3+Math.random()*2.2)*spawnMult; // 10% slower
+        spawnDrillbot();
+      }
     }
   }
 
@@ -3235,13 +3949,46 @@ function update(dt){
     }
   }
 
+  // Drill robots (Level 4) - fast ground-running robots with drills
+  for(var dri=drillbots.length-1;dri>=0;dri--){
+    var drill=drillbots[dri];
+    // Animate running
+    drill.animTimer+=dt;
+    if(drill.animTimer>=0.08){drill.animTimer=0;drill.animFrame=(drill.animFrame+1)%4;}
+    // Move left fast
+    drill.x+=drill.vx*dt;
+    // Remove if off screen
+    if(drill.x<cam.x-50){drillbots.splice(dri,1);continue;}
+    // Collision check
+    var drx=drill.x-drill.w/2,dry=drill.y-drill.h;
+    if(rectsOverlap(pr.x,pr.y,pr.w,pr.h,drx+2,dry+2,drill.w-4,drill.h-4)){
+      // Can stomp from above
+      if(player.vy>0&&player.prevY<drill.y-drill.h+5){
+        handleStomp(drill.x,drill.y,drill.y-drill.h,STOMP_DROID_SCORE);
+        drillbots.splice(dri,1);continue;
+      }
+      if(hasInvinc){
+        score+=STOMP_DROID_SCORE;
+        spawnScorePopup(drill.x,drill.y-10,STOMP_DROID_SCORE,1);
+        spawnParticles(drill.x,drill.y,C_INVINC,8);
+        drillbots.splice(dri,1);continue;
+      } else if(!isInvuln){
+        player.lives--;player.invuln=INVULN_TIME;shakeTimer=0.3;playSfx("playerHit");
+        spawnParticles(drill.x,drill.y,"#ff6622",8);drillbots.splice(dri,1);
+        buildHearts(player.lives,Math.max(MAX_LIVES,player.lives));
+        if(player.lives<=0){gameOver();return;}
+      }
+    }
+  }
+
   // Pickups
   for(var hi=heartPickups.length-1;hi>=0;hi--){
     var hp=heartPickups[hi];hp.bob+=dt*3;
     if(hp.x<cam.x-80){heartPickups.splice(hi,1);continue;}
     var hpY=hp.y+Math.sin(hp.bob)*2;
     if(rectsOverlap(pr.x,pr.y,pr.w,pr.h,hp.x-5,hpY-5,10,10)){
-      player.lives=Math.min(LIVES_CAP,player.lives+1);
+      var heartsToAdd=upgradeChosen==="shield"?2:1; // Shield upgrade gives +2
+      player.lives=Math.min(LIVES_CAP,player.lives+heartsToAdd);
       buildHearts(player.lives,Math.max(MAX_LIVES,player.lives));
       score+=SCORE_ITEM_PICKUP;
       spawnScorePopup(hp.x,hpY-10,SCORE_ITEM_PICKUP,1);
@@ -3256,7 +4003,8 @@ function update(dt){
     if(pw.x<cam.x-80){powerCells.splice(pc,1);continue;}
     var pwY=pw.y+Math.sin(pw.bob)*2;
     if(rectsOverlap(pr.x,pr.y,pr.w,pr.h,pw.x-5,pwY-5,10,10)){
-      player.powerTimer=POWER_DURATION;
+      var powerDur=upgradeChosen==="power"?POWER_DURATION*1.5:POWER_DURATION; // Power upgrade lasts longer
+      player.powerTimer=powerDur;
       player.dashCharges=Math.min(MAX_DASH_CHARGES,player.dashCharges+1);
       buildDashPips(player.dashCharges,MAX_DASH_CHARGES);
       score+=SCORE_ITEM_PICKUP;
@@ -3919,6 +4667,58 @@ function drawCaveBackground(){
     ctx.lineTo(x,GROUND_Y-h);
   }
   ctx.lineTo(W,GROUND_Y);ctx.fill();
+
+  // Level 4 mining equipment and vents
+  if(isForge){
+    var miningScroll=cam.x*0.04;
+    // Steam vents on walls - periodic
+    for(var vi=0;vi<4;vi++){
+      var vx=((vi*80+miningScroll)%W);
+      var vy=GROUND_Y-35-(vi%2)*10;
+      // Vent pipe
+      ctx.fillStyle="#3a3a3a";
+      R(vx-4,vy,8,6,"#3a3a3a");
+      R(vx-3,vy+1,6,4,"#4a4a4a");
+      // Steam puffs (animated)
+      var steamPhase=(shimmerOffset*2+vi)%2;
+      if(steamPhase<1){
+        ctx.globalAlpha=0.3;
+        ctx.fillStyle="#aabbcc";
+        ctx.beginPath();ctx.arc(vx,vy-5-steamPhase*8,3+steamPhase*2,0,6.29);ctx.fill();
+        ctx.beginPath();ctx.arc(vx+2,vy-10-steamPhase*6,2+steamPhase,0,6.29);ctx.fill();
+        ctx.globalAlpha=1;
+      }
+    }
+    // Background scaffolding pipes (faded, not interactable)
+    ctx.globalAlpha=0.25;
+    for(var rx=0;rx<W;rx+=80){
+      // Vertical pipes in background
+      R(rx+10,GROUND_Y-55,2,40,"#445566");
+      R(rx+50,GROUND_Y-50,2,35,"#445566");
+      // Diagonal cross braces
+      ctx.strokeStyle="#445566";
+      ctx.lineWidth=1;
+      ctx.beginPath();
+      ctx.moveTo(rx+11,GROUND_Y-50);
+      ctx.lineTo(rx+51,GROUND_Y-25);
+      ctx.stroke();
+    }
+    ctx.globalAlpha=1;
+    // Glowing ore deposits in walls
+    var oreScroll=cam.x*0.025;
+    for(var oi=0;oi<5;oi++){
+      var ox=((oi*65+oreScroll)%W);
+      var oy=GROUND_Y-20-(oi%3)*8;
+      // Ore glow
+      ctx.globalAlpha=0.4+Math.sin(shimmerOffset*3+oi)*0.2;
+      ctx.fillStyle="#ff6622";
+      ctx.beginPath();ctx.arc(ox,oy,4,0,6.29);ctx.fill();
+      ctx.globalAlpha=0.7;
+      ctx.fillStyle="#ffaa44";
+      ctx.beginPath();ctx.arc(ox,oy,2,0,6.29);ctx.fill();
+      ctx.globalAlpha=1;
+    }
+  }
 }
 
 // SNES-style clouds (Level 1 only)
@@ -4564,6 +5364,63 @@ function drawRobot(){
     ctx.globalAlpha=0.1;R(bx-f*22-2,by-7,4,3,blueLight);
     ctx.globalAlpha=1;
   }
+  // BEAT-UP EFFECTS during cutscene
+  if(cutsceneRobotBeatUp){
+    // Damage scratches/dents on armor
+    ctx.fillStyle="#1a2a3a";
+    R(bx-3,by-8,1,3,"#0a1828"); // scratch on torso
+    R(bx+2,by-6,2,1,"#0a1828"); // dent mark
+    R(bx-6,by-13,1,2,"#0a1828"); // helmet scratch
+    R(bx+4,by-14,2,1,"#0a1828"); // helmet dent
+    R(bx-8,by-8,1,2,"#0a1828"); // shoulder damage
+    R(bx+7,by-9,1,1,"#0a1828"); // arm scratch
+    // Burn/scorch marks (darker spots)
+    ctx.globalAlpha=0.4;
+    R(bx-2,by-5,3,2,"#2a1a1a");
+    R(bx+3,by-10,2,2,"#2a1a1a");
+    ctx.globalAlpha=1;
+    // STEAM particles rising
+    var steamTime=shimmerOffset*2;
+    for(var si=0;si<3;si++){
+      var steamX=bx-4+si*4+Math.sin(steamTime+si*1.5)*2;
+      var steamY=by-22-((steamTime*20+si*10)%15);
+      var steamAlpha=0.3-((steamTime*20+si*10)%15)/50;
+      if(steamAlpha>0){
+        ctx.globalAlpha=steamAlpha;
+        ctx.fillStyle="#aabbcc";
+        ctx.beginPath();ctx.arc(F(steamX),F(steamY),2,0,6.29);ctx.fill();
+        ctx.beginPath();ctx.arc(F(steamX+1),F(steamY-2),1.5,0,6.29);ctx.fill();
+      }
+    }
+    ctx.globalAlpha=1;
+    // SPARK particles (intermittent)
+    var sparkPhase=Math.floor(shimmerOffset*4)%7;
+    if(sparkPhase<2){
+      var sparkX=bx+(sparkPhase===0?-3:4);
+      var sparkY=by-6+(sparkPhase===0?0:-4);
+      ctx.fillStyle="#ffff44";
+      R(sparkX,sparkY,1,1,"#ffff44");
+      R(sparkX+1,sparkY-1,1,1,"#ffaa22");
+      R(sparkX-1,sparkY+1,1,1,"#ff6622");
+      // Spark glow
+      ctx.globalAlpha=0.5;
+      ctx.fillStyle="#ffff88";
+      ctx.beginPath();ctx.arc(F(sparkX),F(sparkY),3,0,6.29);ctx.fill();
+      ctx.globalAlpha=1;
+    }
+    // Small electrical arc effect
+    if(Math.floor(shimmerOffset*8)%11===0){
+      ctx.strokeStyle="#88ffff";
+      ctx.lineWidth=1;
+      ctx.globalAlpha=0.7;
+      ctx.beginPath();
+      ctx.moveTo(bx-1,by-7);
+      ctx.lineTo(bx+1,by-9);
+      ctx.lineTo(bx-1,by-11);
+      ctx.stroke();
+      ctx.globalAlpha=1;
+    }
+  }
   if(hasInvinc) ctx.restore();
 }
 
@@ -4794,6 +5651,61 @@ function drawGooDrops(){
     ctx.fillStyle="#88ff99";
     ctx.beginPath();ctx.arc(F(sx),F(sy-1),2,0,6.29);ctx.fill();
     ctx.globalAlpha=1;
+  }
+}
+
+function drawDrillbots(){
+  for(var i=0;i<drillbots.length;i++){
+    var db=drillbots[i],sx=wxf(db.x),sy=db.y;
+    if(sx<-30||sx>W+30) continue;
+    var frame=db.animFrame;
+    // Leg offsets for running animation
+    var lf=0,rf=0;
+    if(frame===1){lf=-2;rf=1;}else if(frame===3){lf=1;rf=-2;}
+    // Body - orange/red mining robot running left with drill arm extended
+    var bx=F(sx),by=F(sy);
+    // Shadow
+    ctx.globalAlpha=0.3;ctx.fillStyle="#000";
+    ctx.beginPath();ctx.ellipse(bx,by+1,6,2,0,0,6.29);ctx.fill();
+    ctx.globalAlpha=1;
+    // Drill arm extended to the left (in front)
+    R(bx-18,by-8,10,3,"#667788"); // Drill shaft
+    R(bx-22,by-9,5,5,"#889999"); // Drill bit base
+    R(bx-25,by-8,4,3,"#aabbcc"); // Drill tip
+    // Drill spiral (animated)
+    var drillSpin=Math.floor(shimmerOffset*15)%2;
+    if(drillSpin===0){
+      R(bx-21,by-8,1,1,"#556677");
+      R(bx-19,by-7,1,1,"#556677");
+    }else{
+      R(bx-20,by-7,1,1,"#556677");
+      R(bx-22,by-8,1,1,"#556677");
+    }
+    // Head
+    ctx.fillStyle="#0a1828";
+    ctx.beginPath();ctx.arc(bx,by-10,5,0,6.29);ctx.fill();
+    ctx.fillStyle="#aa4422";
+    ctx.beginPath();ctx.arc(bx,by-10,4,0,6.29);ctx.fill();
+    ctx.fillStyle="#cc5533";
+    ctx.beginPath();ctx.arc(bx,by-11,3,0,3.14,true);ctx.fill();
+    // Eyes (angry, looking left)
+    R(bx-3,by-11,2,2,"#ffcc22");
+    R(bx+1,by-11,2,2,"#ffcc22");
+    // Body
+    R(bx-4,by-6,8,6,"#0a1828");
+    R(bx-3,by-5,6,4,"#993322");
+    R(bx-2,by-4,4,2,"#aa4433");
+    // Shoulder (right side, opposite drill)
+    R(bx+3,by-7,4,4,"#0a1828");
+    R(bx+4,by-6,3,3,"#884422");
+    // Legs (running)
+    R(bx-3,by-1+lf,3,5+Math.abs(lf),"#0a1828");
+    R(bx-2,by+lf,2,4+Math.abs(lf),"#773322");
+    R(bx+1,by-1+rf,3,5+Math.abs(rf),"#0a1828");
+    R(bx+1,by+rf,2,4+Math.abs(rf),"#773322");
+    // Boots
+    R(bx-4,by+3+lf,4,1,"#0a1828");
+    R(bx,by+3+rf,4,1,"#0a1828");
   }
 }
 
@@ -5382,19 +6294,228 @@ function drawScorePopups(){
   ctx.textAlign="left";
 }
 
+// === CLOSE-UP SHOT RENDERING ===
+function drawCloseupShot(){
+  // Dark background with subtle texture
+  ctx.fillStyle="#0a0808";
+  ctx.fillRect(0,0,W,H);
+
+  // Dim background glow (cave ambience)
+  var gradient=ctx.createRadialGradient(W/2,H/2,0,W/2,H/2,W*0.6);
+  gradient.addColorStop(0,"rgba(40,25,20,0.4)");
+  gradient.addColorStop(1,"rgba(10,8,8,0)");
+  ctx.fillStyle=gradient;
+  ctx.fillRect(0,0,W,H);
+
+  // Robot position (centered, larger than normal)
+  var rx=W/2,ry=H/2+15;
+  var scale=2.5; // Larger than normal
+
+  // === ROBOT BODY (detailed close-up) ===
+  // Helmet - larger with more detail
+  var blueDark="#1a4060",blueMid="#3080b0",blueLight="#50a0d0",blueBright="#70c0e8";
+  var outline="#0a1828",visor="#ff55aa",visorGlow="#ff88cc";
+
+  // Helmet base
+  ctx.fillStyle=outline;
+  ctx.beginPath();ctx.arc(rx,ry-35,18,0,6.29);ctx.fill();
+  ctx.fillStyle=blueDark;
+  ctx.beginPath();ctx.arc(rx,ry-35,16,0,6.29);ctx.fill();
+  ctx.fillStyle=blueMid;
+  ctx.beginPath();ctx.arc(rx,ry-35,14,0,6.29);ctx.fill();
+  ctx.fillStyle=blueLight;
+  ctx.beginPath();ctx.arc(rx,ry-38,11,0,3.14,true);ctx.fill();
+  ctx.fillStyle=blueBright;
+  ctx.beginPath();ctx.arc(rx,ry-40,8,0,3.14,true);ctx.fill();
+
+  // Visor (cracked)
+  R(rx-10,ry-40,24,10,outline);
+  R(rx-8,ry-38,20,7,"#992266");
+  R(rx-6,ry-37,16,5,visor);
+  // Crack lines on visor
+  ctx.strokeStyle="#441133";ctx.lineWidth=1;
+  ctx.beginPath();ctx.moveTo(rx-3,ry-40);ctx.lineTo(rx+2,ry-34);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(rx+5,ry-39);ctx.lineTo(rx+8,ry-35);ctx.stroke();
+
+  // Ear sensors (damaged)
+  R(rx-18,ry-38,5,8,outline);R(rx-16,ry-36,3,5,blueMid);
+  R(rx+13,ry-38,5,8,outline);R(rx+14,ry-36,3,5,blueMid);
+
+  // === TORSO WITH EXPOSED CAVITY ===
+  // Outer torso
+  R(rx-14,ry-22,28,22,outline);
+  R(rx-12,ry-20,24,18,blueDark);
+  R(rx-10,ry-18,20,14,blueMid);
+
+  // Scorch marks around cavity
+  ctx.globalAlpha=0.6;
+  ctx.fillStyle="#1a0a08";
+  R(rx-8,ry-16,16,12,"#1a0a08");
+  ctx.globalAlpha=0.4;
+  ctx.fillStyle="#2a1510";
+  ctx.beginPath();ctx.arc(rx,ry-10,10,0,6.29);ctx.fill();
+  ctx.globalAlpha=1;
+
+  // Exposed cavity (dark interior)
+  R(rx-7,ry-15,14,10,"#050304");
+  R(rx-6,ry-14,12,8,"#0a0606");
+
+  // === WIRES inside cavity ===
+  var wireColors=["#cc4444","#44aa44","#4488cc","#ccaa44","#aa44aa","#44cccc"];
+  ctx.lineWidth=1;
+  // Draw 8 wires with different paths
+  for(var wi=0;wi<8;wi++){
+    var wc=wireColors[wi%wireColors.length];
+    ctx.strokeStyle=wc;
+    ctx.beginPath();
+    var wx1=rx-5+wi*1.5;
+    var wy1=ry-14;
+    var wx2=rx-6+(wi%4)*4;
+    var wy2=ry-6-Math.sin(wi)*2;
+    ctx.moveTo(wx1,wy1);
+    // Curved wire
+    ctx.quadraticCurveTo(wx1+(Math.random()-0.5)*6,wy1+4,wx2,wy2);
+    ctx.stroke();
+    // Some wires have frayed/dangling ends
+    if(wi%3===0){
+      ctx.beginPath();
+      ctx.moveTo(wx2,wy2);
+      ctx.lineTo(wx2+(Math.random()-0.5)*4,wy2+3+Math.random()*2);
+      ctx.stroke();
+    }
+  }
+
+  // Core (scorched, pulsing ember)
+  var corePulse=0.5+Math.sin(shimmerOffset*5)*0.3;
+  ctx.globalAlpha=0.7;
+  ctx.fillStyle="#331111";
+  ctx.beginPath();ctx.arc(rx,ry-10,4,0,6.29);ctx.fill();
+  ctx.globalAlpha=corePulse;
+  ctx.fillStyle="#ff4422";
+  ctx.beginPath();ctx.arc(rx,ry-10,3,0,6.29);ctx.fill();
+  ctx.globalAlpha=corePulse*0.6;
+  ctx.fillStyle="#ffaa44";
+  ctx.beginPath();ctx.arc(rx,ry-10,2,0,6.29);ctx.fill();
+  ctx.globalAlpha=1;
+
+  // === SPARKS ===
+  for(var si=0;si<cutsceneCloseupSparks.length;si++){
+    var sp=cutsceneCloseupSparks[si];
+    ctx.globalAlpha=sp.life*3;
+    ctx.fillStyle="#ffcc44";
+    ctx.beginPath();ctx.arc(sp.x,sp.y,1,0,6.29);ctx.fill();
+    ctx.fillStyle="#ffffff";
+    ctx.beginPath();ctx.arc(sp.x,sp.y,0.5,0,6.29);ctx.fill();
+  }
+  ctx.globalAlpha=1;
+
+  // === ELECTRICAL ARCS ===
+  for(var ai=0;ai<cutsceneCloseupArcs.length;ai++){
+    var arc=cutsceneCloseupArcs[ai];
+    ctx.strokeStyle="#88ccff";
+    ctx.lineWidth=1;
+    ctx.globalAlpha=0.8;
+    ctx.beginPath();
+    ctx.moveTo(arc.x1,arc.y1);
+    // Jagged arc
+    var midX=(arc.x1+arc.x2)/2+(Math.random()-0.5)*8;
+    var midY=(arc.y1+arc.y2)/2+(Math.random()-0.5)*6;
+    ctx.lineTo(midX,midY);
+    ctx.lineTo(arc.x2,arc.y2);
+    ctx.stroke();
+    // Glow
+    ctx.globalAlpha=0.3;
+    ctx.strokeStyle="#aaeeff";
+    ctx.lineWidth=3;
+    ctx.stroke();
+  }
+  ctx.globalAlpha=1;
+  ctx.lineWidth=1;
+
+  // === CRACKED POWER CELL (bottom right, in "Dez's hand" area) ===
+  var cellX=rx+50,cellY=ry+10;
+  var cellPulse=0.7+Math.sin(cutscenePowerCellPulse)*0.3;
+  var cellScale=1+Math.sin(cutscenePowerCellPulse*0.5)*0.1;
+
+  // Cell glow halo
+  ctx.globalAlpha=0.3*cellPulse;
+  ctx.fillStyle="#ff55aa";
+  ctx.beginPath();ctx.arc(cellX,cellY,12*cellScale,0,6.29);ctx.fill();
+  ctx.globalAlpha=1;
+
+  // Cell body (cylinder shape)
+  R(cellX-4*cellScale,cellY-8*cellScale,8*cellScale,16*cellScale,"#222233");
+  R(cellX-3*cellScale,cellY-7*cellScale,6*cellScale,14*cellScale,"#334455");
+
+  // Crack lines
+  ctx.strokeStyle="#111122";ctx.lineWidth=1;
+  ctx.beginPath();ctx.moveTo(cellX-2,cellY-6);ctx.lineTo(cellX+1,cellY+4);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(cellX+2,cellY-4);ctx.lineTo(cellX-1,cellY+2);ctx.stroke();
+
+  // Inner glow
+  ctx.globalAlpha=cellPulse;
+  R(cellX-2*cellScale,cellY-5*cellScale,4*cellScale,10*cellScale,visor);
+  ctx.globalAlpha=cellPulse*0.8;
+  R(cellX-1*cellScale,cellY-4*cellScale,2*cellScale,8*cellScale,visorGlow);
+  ctx.globalAlpha=1;
+
+  // Floating motes around cell
+  for(var mi=0;mi<4;mi++){
+    var moteAngle=shimmerOffset*2+mi*1.57;
+    var moteR=8+Math.sin(shimmerOffset*3+mi)*3;
+    var moteX=cellX+Math.cos(moteAngle)*moteR;
+    var moteY=cellY+Math.sin(moteAngle)*moteR*0.6;
+    ctx.globalAlpha=0.4+Math.sin(shimmerOffset*5+mi)*0.2;
+    ctx.fillStyle="#ff88cc";
+    ctx.beginPath();ctx.arc(moteX,moteY,1,0,6.29);ctx.fill();
+  }
+  ctx.globalAlpha=1;
+
+  // === REPAIR ACTION (wrench/tool spark) ===
+  if(cutsceneRepairAction){
+    var toolX=rx-30,toolY=ry-5;
+    // Wrench shape
+    R(toolX,toolY,12,3,"#667788");
+    R(toolX-3,toolY-2,4,7,"#556677");
+    R(toolX+10,toolY-2,4,7,"#556677");
+    // Tool sparks (clearly repair, not damage)
+    var repairSparkPhase=Math.floor(shimmerOffset*12)%3;
+    if(repairSparkPhase===0){
+      ctx.fillStyle="#ffcc44";
+      R(toolX+6,toolY-3,2,2,"#ffcc44");
+      R(toolX+8,toolY-5,1,1,"#ffffff");
+    }
+  }
+
+  // === HARD CUT FLASH ===
+  if(cutsceneCloseupFlash>0){
+    ctx.globalAlpha=cutsceneCloseupFlash*0.8;
+    ctx.fillStyle="#000000";
+    ctx.fillRect(0,0,W,H);
+    ctx.globalAlpha=1;
+  }
+}
+
 function draw(){
   ctx.save();
-  if(shakeTimer>0) ctx.translate(F((Math.random()-0.5)*4),F((Math.random()-0.5)*4));
+  if(shakeTimer>0&&!cutsceneActive) ctx.translate(F((Math.random()-0.5)*4),F((Math.random()-0.5)*4));
   ctx.font="5px monospace";
+
+  // === CLOSE-UP SHOT MODE ===
+  if(cutsceneShotMode==="CLOSEUP"){
+    drawCloseupShot();
+    ctx.restore();
+    return;
+  }
 
   drawSky();drawClouds();drawMountains();drawNightDunes();drawCaveBackground();drawParallaxDunes();drawGround();drawTerrainDunes();drawGlowDomes();drawProps();
   drawPlatforms();drawHeartPickups();drawPowerCells();drawInvincPickups();
   drawSandworms();drawEnemies();drawFliers();drawDroids();
   drawProjectiles();drawDrops();drawLasers();
-  drawBigworms();drawDaggers();drawSpiders();drawGooDrops();
+  drawBigworms();drawDaggers();drawSpiders();drawGooDrops();drawDrillbots();
   if(level===3||level===4) drawTorches();
   drawBossArenaWalls();drawBoss();drawBossProjectiles();drawPlayerLasers();
-  drawRobot();if(dez.active) drawDez();drawParticles();drawScorePopups();
+  drawWorkbench();drawRobot();if(dez.active) drawDez();if(cutsceneTargets.length>0) drawCutsceneTargets();drawParticles();drawScorePopups();
   drawCaveOverlay();
 
   // Stomp flash
@@ -5604,14 +6725,14 @@ function loop(ts){
   var dt=Math.min((ts-lastTime)/1000,0.05);
   lastTime=ts;
   try{
-    // Failsafe: if playing and no lives, force game over
-    if(state==="playing"&&player.lives<=0){gameOver();}
+    // Failsafe: if playing and no lives, force game over (but not during cutscene)
+    if(state==="playing"&&player.lives<=0&&!cutsceneActive){gameOver();}
     update(dt);
     if(cutsceneActive) updateCutscene(dt);
     draw();
   }catch(e){
     console.error("Game error:",e);
-    if(state==="playing"){gameOver();}
+    if(state==="playing"&&!cutsceneActive){gameOver();}
   }
 }
 
