@@ -12,6 +12,7 @@
 html,body{width:100%;height:100%;overflow:hidden;background:#1a1020;display:flex;align-items:center;justify-content:center;font-family:monospace;touch-action:none;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
 #wrap{position:relative;display:flex;align-items:center;justify-content:center}
 canvas{image-rendering:pixelated;image-rendering:crisp-edges;display:block}
+#crt-canvas{position:absolute;top:0;left:0;width:100%;height:100%;image-rendering:pixelated;image-rendering:crisp-edges;z-index:1;pointer-events:none}
 .mobile-btn{display:none;position:fixed;z-index:10;touch-action:manipulation;border:none;font:bold 18px monospace;border-radius:12px;opacity:0.9;-webkit-tap-highlight-color:transparent}
 /* Fullscreen prompt for mobile */
 #fullscreen-prompt{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:linear-gradient(180deg,#1a1020 0%,#2a1530 50%,#1a1020 100%);z-index:150;flex-direction:column;align-items:center;justify-content:center;color:#ffcc88;font-family:'Press Start 2P',monospace;text-align:center;padding:20px}
@@ -250,6 +251,7 @@ canvas{image-rendering:pixelated;image-rendering:crisp-edges;display:block}
       <button class="ov-btn" id="btn-start">START</button>
       <button class="ov-btn" id="btn-howto">HOW TO PLAY</button>
       <button class="ov-btn" id="btn-title-lb">LEADERBOARD</button>
+      <button class="ov-btn ov-btn-small" id="btn-title-crt">CRT: ON</button>
     </div>
     <div id="scr-howto" class="ov-panel ov-hidden">
       <div class="ov-heading">HOW TO PLAY</div>
@@ -266,6 +268,7 @@ canvas{image-rendering:pixelated;image-rendering:crisp-edges;display:block}
       </div>
       <button class="ov-btn ov-btn-small" id="btn-pause-howto">HOW TO PLAY</button>
       <button class="ov-btn ov-btn-small" id="btn-pause-lb">LEADERBOARD</button>
+      <button class="ov-btn ov-btn-small" id="btn-crt-toggle">CRT: ON</button>
       <div class="ov-pause-hint" id="pause-hint"></div>
     </div>
     <div id="scr-pause-howto" class="ov-panel ov-hidden">
@@ -1117,6 +1120,195 @@ var ctx=canvas.getContext("2d");
 var wrap=document.getElementById("wrap");
 var overlay=document.getElementById("overlay");
 canvas.width=W;canvas.height=H;
+
+// === CRT SHADER SYSTEM ===
+var crtEnabled=true;
+var crtAvailable=false;
+var glCanvas=null;
+var gl=null;
+var crtProgram=null;
+var crtTexture=null;
+var crtTime=0;
+var crtUniforms={};
+
+var CRT_VERT_SRC=[
+"attribute vec2 aPos;",
+"varying vec2 vUV;",
+"void main(){",
+"  vUV=vec2(aPos.x*0.5+0.5, 1.0-(aPos.y*0.5+0.5));",
+"  gl_Position=vec4(aPos,0.0,1.0);",
+"}"
+].join("\n");
+
+var CRT_FRAG_SRC=[
+"precision mediump float;",
+"varying vec2 vUV;",
+"uniform sampler2D uTex;",
+"uniform float uTime;",
+"uniform vec2 uRes;",
+"",
+"void main(){",
+"  vec2 uv=vUV;",
+"",
+"  // Chromatic aberration (very slight)",
+"  float ca=0.0012;",
+"  vec2 caOff=vec2(ca, 0.0);",
+"  float r=texture2D(uTex, uv+caOff).r;",
+"  float g=texture2D(uTex, uv).g;",
+"  float b=texture2D(uTex, uv-caOff).b;",
+"  vec3 col=vec3(r,g,b);",
+"",
+"  // Bloom (5-tap cross, gentle)",
+"  vec2 px=1.0/uRes;",
+"  vec3 bloom=col;",
+"  bloom+=texture2D(uTex, uv+vec2(px.x,0.0)).rgb;",
+"  bloom+=texture2D(uTex, uv-vec2(px.x,0.0)).rgb;",
+"  bloom+=texture2D(uTex, uv+vec2(0.0,px.y)).rgb;",
+"  bloom+=texture2D(uTex, uv-vec2(0.0,px.y)).rgb;",
+"  bloom*=0.2;",
+"  col=mix(col, bloom, 0.08);",
+"",
+"  // Scanlines (static, no flicker)",
+"  float scanY=uv.y*uRes.y;",
+"  float scanLine=sin(scanY*3.14159)*0.5+0.5;",
+"  float brightness=dot(col, vec3(0.299,0.587,0.114));",
+"  float scanStr=mix(0.10, 0.04, brightness);",
+"  col*=1.0-scanStr*scanLine;",
+"",
+"  // Shadow mask (RGB subpixels, barely there)",
+"  float maskX=mod(gl_FragCoord.x, 3.0);",
+"  vec3 mask=vec3(0.95);",
+"  if(maskX<1.0) mask=vec3(1.0,0.92,0.92);",
+"  else if(maskX<2.0) mask=vec3(0.92,1.0,0.92);",
+"  else mask=vec3(0.92,0.92,1.0);",
+"  col=mix(col, col*mask, 0.03);",
+"",
+"  // Saturation boost",
+"  float lum=dot(col, vec3(0.299,0.587,0.114));",
+"  col=mix(vec3(lum), col, 1.15);",
+"",
+"  // Contrast boost (gentle, lifts darks)",
+"  col=(col-0.4)*1.08+0.4;",
+"",
+"  // Brightness compensate",
+"  col*=1.1;",
+"",
+"  gl_FragColor=vec4(col, 1.0);",
+"}"
+].join("\n");
+
+function initCRT(){
+  try{
+    glCanvas=document.createElement("canvas");
+    glCanvas.id="crt-canvas";
+    glCanvas.width=W;
+    glCanvas.height=H;
+    wrap.appendChild(glCanvas);
+
+    gl=glCanvas.getContext("webgl")||glCanvas.getContext("experimental-webgl");
+    if(!gl){throw new Error("No WebGL");}
+
+    // Compile shaders
+    var vs=gl.createShader(gl.VERTEX_SHADER);
+    gl.shaderSource(vs, CRT_VERT_SRC);
+    gl.compileShader(vs);
+    if(!gl.getShaderParameter(vs, gl.COMPILE_STATUS)){
+      throw new Error("VS: "+gl.getShaderInfoLog(vs));
+    }
+    var fs=gl.createShader(gl.FRAGMENT_SHADER);
+    gl.shaderSource(fs, CRT_FRAG_SRC);
+    gl.compileShader(fs);
+    if(!gl.getShaderParameter(fs, gl.COMPILE_STATUS)){
+      throw new Error("FS: "+gl.getShaderInfoLog(fs));
+    }
+
+    crtProgram=gl.createProgram();
+    gl.attachShader(crtProgram, vs);
+    gl.attachShader(crtProgram, fs);
+    gl.linkProgram(crtProgram);
+    if(!gl.getProgramParameter(crtProgram, gl.LINK_STATUS)){
+      throw new Error("Link: "+gl.getProgramInfoLog(crtProgram));
+    }
+    gl.useProgram(crtProgram);
+
+    // Fullscreen quad
+    var quad=new Float32Array([-1,-1, 1,-1, -1,1, -1,1, 1,-1, 1,1]);
+    var buf=gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+    gl.bufferData(gl.ARRAY_BUFFER, quad, gl.STATIC_DRAW);
+    var aPos=gl.getAttribLocation(crtProgram, "aPos");
+    gl.enableVertexAttribArray(aPos);
+    gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
+
+    // Texture
+    crtTexture=gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, crtTexture);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+    // Uniform locations
+    crtUniforms.uTex=gl.getUniformLocation(crtProgram, "uTex");
+    crtUniforms.uTime=gl.getUniformLocation(crtProgram, "uTime");
+    crtUniforms.uRes=gl.getUniformLocation(crtProgram, "uRes");
+    gl.uniform1i(crtUniforms.uTex, 0);
+    gl.uniform2f(crtUniforms.uRes, W, H);
+
+    crtAvailable=true;
+
+    // Load preference
+    var saved=localStorage.getItem("dezRunner_crt");
+    if(saved!==null) crtEnabled=(saved==="true");
+
+    applyCRTVisibility();
+    updateCRTButtons();
+  }catch(e){
+    console.warn("CRT init failed:",e.message);
+    crtAvailable=false;
+    crtEnabled=false;
+    if(glCanvas&&glCanvas.parentNode) glCanvas.parentNode.removeChild(glCanvas);
+    glCanvas=null;gl=null;
+    updateCRTButtons();
+  }
+}
+
+function renderCRT(dt){
+  if(!crtAvailable||!crtEnabled||!gl) return;
+  crtTime+=dt;
+  gl.viewport(0,0,gl.drawingBufferWidth,gl.drawingBufferHeight);
+  gl.bindTexture(gl.TEXTURE_2D, crtTexture);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, canvas);
+  gl.uniform1f(crtUniforms.uTime, crtTime);
+  gl.drawArrays(gl.TRIANGLES, 0, 6);
+}
+
+function toggleCRT(){
+  if(!crtAvailable) return;
+  crtEnabled=!crtEnabled;
+  localStorage.setItem("dezRunner_crt", crtEnabled?"true":"false");
+  applyCRTVisibility();
+  updateCRTButtons();
+}
+
+function applyCRTVisibility(){
+  if(!glCanvas) return;
+  if(crtEnabled&&crtAvailable){
+    glCanvas.style.display="block";
+    canvas.style.opacity="0";
+  }else{
+    glCanvas.style.display="none";
+    canvas.style.opacity="1";
+  }
+}
+
+function updateCRTButtons(){
+  var label=crtAvailable?(crtEnabled?"CRT: ON":"CRT: OFF"):"CRT: N/A";
+  var btn1=document.getElementById("btn-title-crt");
+  var btn2=document.getElementById("btn-crt-toggle");
+  if(btn1) btn1.textContent=label;
+  if(btn2) btn2.textContent=label;
+}
 
 var isMobile="ontouchstart"in window||navigator.maxTouchPoints>0;
 var isIOS=/iPad|iPhone|iPod/.test(navigator.userAgent)||
@@ -3378,6 +3570,8 @@ document.getElementById("btn-pause-lb").addEventListener("click",function(){
   loadLeaderboard();
   showScreen("leaderboard");
 });
+document.getElementById("btn-crt-toggle").addEventListener("click",toggleCRT);
+document.getElementById("btn-title-crt").addEventListener("click",toggleCRT);
 document.getElementById("btn-lb-back").addEventListener("click",function(){
   if(state==="paused") showScreen("paused");
   else if(state==="gameover") showScreen("gameover");
@@ -7484,6 +7678,7 @@ function resize(){
   var sw=F(W*scale),sh=F(H*scale);
   canvas.style.width=sw+"px";canvas.style.height=sh+"px";
   wrap.style.width=sw+"px";wrap.style.height=sh+"px";
+  if(glCanvas){glCanvas.style.width=sw+"px";glCanvas.style.height=sh+"px";}
 }
 window.addEventListener("resize",resize);resize();
 
@@ -7498,13 +7693,14 @@ function loop(ts){
     update(dt);
     if(cutsceneActive) updateCutscene(dt);
     draw();
+    renderCRT(dt);
   }catch(e){
     console.error("Game error:",e);
     if(state==="playing"&&!cutsceneActive){gameOver();}
   }
 }
 
-initWorld();initCutsceneElements();showScreen("title");requestAnimationFrame(loop);
+initCRT();initWorld();initCutsceneElements();showScreen("title");requestAnimationFrame(loop);
 })();
 </script>
 </body>
