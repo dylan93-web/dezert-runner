@@ -144,13 +144,19 @@ canvas{image-rendering:pixelated;image-rendering:crisp-edges;display:block}
 #cutscene-overlay{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:20;opacity:0;transition:opacity 0.3s}
 #cutscene-overlay.active{opacity:1;pointer-events:auto}
 #cutscene-vignette{position:absolute;top:0;left:0;width:100%;height:100%;background:radial-gradient(ellipse at center,transparent 50%,rgba(0,0,0,0.4) 100%);pointer-events:none}
-#speech-bubble{position:absolute;min-width:200px;max-width:280px;background:#e8d8c0;border:3px solid #222;border-radius:8px;padding:8px 12px;font-family:'Press Start 2P',monospace;font-size:9px;line-height:1.6;color:#222;box-shadow:3px 3px 0 #000;display:none;z-index:25}
-#speech-bubble::after{content:'';position:absolute;bottom:-10px;left:20px;border-width:10px 8px 0 8px;border-style:solid;border-color:#222 transparent transparent transparent}
-#speech-bubble::before{content:'';position:absolute;bottom:-6px;left:22px;border-width:7px 6px 0 6px;border-style:solid;border-color:#e8d8c0 transparent transparent transparent;z-index:1}
+#speech-bubble{position:absolute;min-width:280px;max-width:420px;background:#e8d8c0;border:4px solid #222;border-radius:12px;padding:14px 18px;font-family:'Press Start 2P',monospace;font-size:14px;line-height:1.7;color:#222;box-shadow:4px 4px 0 #000;display:none;z-index:25}
+#speech-bubble::after{content:'';position:absolute;bottom:-14px;left:28px;border-width:14px 10px 0 10px;border-style:solid;border-color:#222 transparent transparent transparent}
+#speech-bubble::before{content:'';position:absolute;bottom:-9px;left:30px;border-width:10px 8px 0 8px;border-style:solid;border-color:#e8d8c0 transparent transparent transparent;z-index:1}
 #speech-bubble.visible{display:block}
-#speech-speaker{color:#cc3366;margin-bottom:8px;font-size:10px}
-#speech-text{min-height:36px}
-#speech-continue{position:absolute;bottom:8px;right:12px;font-size:8px;color:#666;animation:blink-triangle 0.6s infinite}
+#speech-speaker{color:#cc3366;margin-bottom:10px;font-size:16px}
+#speech-text{min-height:48px}
+#speech-continue{position:absolute;bottom:10px;right:16px;font-size:14px;color:#666;animation:blink-triangle 0.6s infinite}
+@media (pointer: coarse){
+  #speech-bubble{min-width:35vw;max-width:55vw;font-size:11px;padding:10px 14px;border-radius:10px}
+  #speech-speaker{font-size:12px;margin-bottom:8px}
+  #speech-text{min-height:36px}
+  #speech-continue{font-size:11px;bottom:8px;right:12px}
+}
 @keyframes blink-triangle{0%,100%{opacity:1}50%{opacity:0.3}}
 /* Level transition banner */
 #level-banner{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-family:'Press Start 2P',monospace;font-size:28px;color:#ffcc44;text-shadow:3px 3px 0 #000;z-index:15;opacity:0;transition:opacity 0.4s;pointer-events:none}
@@ -2621,9 +2627,9 @@ function showCloseupDialogue(speaker,text){
   var domX=zoomedX*(canvas.clientWidth/W);
   var domY=zoomedY*(canvas.clientHeight/H);
   // Clamp to screen bounds
-  var bubbleW=220;
+  var bubbleW=isMobile?canvas.clientWidth*0.7:340;
   domX=Math.max(10,Math.min(canvas.clientWidth-bubbleW-10,domX-bubbleW/2));
-  domY=Math.max(10,Math.min(canvas.clientHeight-80,domY-60));
+  domY=Math.max(10,Math.min(canvas.clientHeight-100,domY-70));
   speechBubble.style.left=domX+"px";
   speechBubble.style.top=domY+"px";
   speechBubble.style.bottom="auto";
@@ -2648,9 +2654,9 @@ function showDialogue(speaker,text,worldX,worldY){
     var screenX=(worldX-cam.x)*(canvas.clientWidth/W);
     var screenY=(worldY)*(canvas.clientHeight/H);
     // Clamp to screen bounds
-    var bubbleW=220;
+    var bubbleW=isMobile?canvas.clientWidth*0.7:340;
     screenX=Math.max(10,Math.min(canvas.clientWidth-bubbleW-10,screenX-bubbleW/2));
-    screenY=Math.max(10,Math.min(canvas.clientHeight-80,screenY-60));
+    screenY=Math.max(10,Math.min(canvas.clientHeight-100,screenY-70));
     speechBubble.style.left=screenX+"px";
     speechBubble.style.top=screenY+"px";
     speechBubble.style.bottom="auto";
@@ -3213,7 +3219,7 @@ function startGame(){initAudio();resetGame();state="playing";showScreen("playing
 document.addEventListener("keydown",function(e){
   if(keys[e.code]){e.preventDefault();return;}
   keys[e.code]=true;
-  // Cutscene dialogue advancement
+  // Cutscene dialogue advancement (keyboard)
   if(cutsceneActive&&dialogueActive){
     if(e.code==="Space"||e.code==="Enter"){
       advanceDialogue();
@@ -3425,6 +3431,23 @@ if(isMobile){
     });
   });
 }
+
+// Tap anywhere to advance cutscene dialogue on mobile
+// Listen on overlay (z-index:20, covers canvas during cutscene), speech bubble, and canvas as fallback
+function cutsceneTapHandler(e){
+  if(cutsceneActive&&dialogueActive){
+    e.preventDefault();
+    e.stopPropagation();
+    advanceDialogue();
+  }
+}
+document.getElementById("cutscene-overlay").addEventListener("touchstart",cutsceneTapHandler,{passive:false});
+document.getElementById("speech-bubble").addEventListener("touchstart",cutsceneTapHandler,{passive:false});
+canvas.addEventListener("touchstart",cutsceneTapHandler,{passive:false});
+// Also support click for desktop testing
+document.getElementById("cutscene-overlay").addEventListener("click",function(){
+  if(cutsceneActive&&dialogueActive) advanceDialogue();
+});
 
 // === STOMP HELPERS ===
 function checkStomp(enemyTop,enemyLeft,enemyRight){
