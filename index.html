@@ -166,6 +166,12 @@ canvas{image-rendering:pixelated;image-rendering:crisp-edges;display:block}
 }
 @keyframes blink-triangle{0%,100%{opacity:1}50%{opacity:0.3}}
 /* Level transition banner */
+/* Blueprint intro overlay */
+#blueprint-intro{position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);display:none;flex-direction:column;align-items:center;justify-content:center;z-index:16;font-family:'Press Start 2P',monospace}
+#blueprint-intro.visible{display:flex}
+#blueprint-intro-title{color:#44ffaa;font-size:18px;text-shadow:3px 3px 0 #000;margin-bottom:16px;text-align:center;line-height:1.5}
+#blueprint-intro-icon{image-rendering:pixelated;margin-bottom:16px}
+#blueprint-intro-continue{color:#887766;font-size:11px;text-shadow:2px 2px 0 #000}
 #level-banner{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-family:'Press Start 2P',monospace;font-size:28px;color:#ffcc44;text-shadow:3px 3px 0 #000;z-index:15;opacity:0;transition:opacity 0.4s;pointer-events:none}
 #level-banner.visible{opacity:1}
 /* Upgrade panel - SNES style, transparent background */
@@ -227,6 +233,11 @@ canvas{image-rendering:pixelated;image-rendering:crisp-edges;display:block}
     </div>
   </div>
   <div id="level-banner"></div>
+  <div id="blueprint-intro">
+    <div id="blueprint-intro-title">COLLECT BLUEPRINT<br>FRAGMENTS</div>
+    <canvas id="blueprint-intro-icon" width="60" height="60"></canvas>
+    <div id="blueprint-intro-continue"></div>
+  </div>
   <div id="upgrade-panel">
     <div id="upgrade-title">UPGRADE FREQ-BOT</div>
     <div id="upgrade-subtitle">Choose your enhancement</div>
@@ -1697,6 +1708,7 @@ var POST_BOSS_CUTSCENE_DIST=500; // Distance to run after boss before cutscene
 // Workbench/Upgrade system
 var workbench={x:0,visible:false};
 var upgradeChosen="none"; // "none", "shield", "speed", "power"
+var postUpgradeDialogue=false;
 var upgradePanel=null;
 var repairAnimTimer=0;
 var dezWorking=false;
@@ -1729,6 +1741,7 @@ var blueprintCount=0;
 var level4DistanceStart=0;
 var blueprintHintTimer=0;
 var blueprintHintShown=false;
+var blueprintIntroActive=false;
 
 // FREQ mode message timer
 var freqModeTimer=0;
@@ -1981,6 +1994,7 @@ function resetGame(){
   heartPickups=[];powerCells=[];invincPickups=[];blueprintFragments=[];sandworms=[];scorePopups=[];
   score=0;distance=0;maxX=60;gameTime=0;spawnTimer=SAFE_START;shakeTimer=0;lastGenX=0;lastPowerX=0;lastHeartX=0;lastInvincX=0;lastBlueprintX=0;
   stompFlash=0;stompCooldown=0;stompCombo=0;blueprintCount=0;level4DistanceStart=0;blueprintHintTimer=0;blueprintHintShown=false;
+  blueprintIntroActive=false;blueprintIntroEl.classList.remove("visible");
   level=1;levelTransitionTimer=0;freqModeTimer=0;spawnPauseTimer=0;pitFallTimer=0;pitFallScroll=0;level3GraceTimer=0;
   invincSpawned={1:false,2:false,3:false,4:false,5:false};
   wormTimer=WORM_MIN_INTERVAL+Math.random()*(WORM_MAX_INTERVAL-WORM_MIN_INTERVAL);
@@ -2021,6 +2035,7 @@ function resetGame(){
   if(speechBubble) speechBubble.classList.remove("visible");
   // Reset upgrade state
   upgradeChosen="none";
+  postUpgradeDialogue=false;
   MAX_RUN=BASE_MAX_RUN;
   MAX_LIVES=BASE_MAX_LIVES;
   LIVES_CAP=BASE_LIVES_CAP;
@@ -2720,8 +2735,8 @@ function updateCutscene(dt){
   // Update Dez
   updateDez(dt);
 
-  // Check if cutscene is done (but not if upgrade panel is showing)
-  if(cutsceneStepIndex>=cutsceneScript.length&&!dialogueActive&&upgradeChosen!=="none"){
+  // Check if cutscene is done (but not if upgrade panel or post-upgrade dialogue is active)
+  if(cutsceneStepIndex>=cutsceneScript.length&&!dialogueActive&&upgradeChosen!=="none"&&!postUpgradeDialogue){
     endCutscene();
   }
 
@@ -3293,21 +3308,27 @@ function selectUpgrade(type){
   // Fresh start after upgrade: full health
   player.lives=MAX_LIVES;
 
-  // Transition to Level 4
-  cutsceneRobotBeatUp=false;
-  level=4;
-  level4DistanceStart=distance;
-  playLevelMusic(4);
-  showLevelBanner("LEVEL 4: FORGE TUNNELS",2500);
-  hudLevel.textContent="LVL 4";
-  hudLevel.style.color="#ff6622";
-  buildHearts(player.lives,MAX_LIVES);
-  invincPickups=[]; // Clear leftover invincibility from Level 3
-  // Show blueprint collection hint immediately
-  blueprintHintTimer=4.5;
-
-  // End the cutscene
-  endCutscene();
+  // Post-upgrade dialogue before transitioning
+  postUpgradeDialogue=true;
+  setTimeout(function(){
+    if(!cutsceneActive) return;
+    showDialogue("DEZ","Okay buddy, now that I've got you fixed up, I need you to go collect blueprint fragments so we can build you into your standalone core version.",dez.x,dez.y-25);
+    dialogueDismissCallback=function(){
+      postUpgradeDialogue=false;
+      // Transition to Level 4 (banner delayed until blueprint intro dismissed)
+      cutsceneRobotBeatUp=false;
+      level=4;
+      level4DistanceStart=distance;
+      playLevelMusic(4);
+      hudLevel.textContent="LVL 4";
+      hudLevel.style.color="#ff6622";
+      buildHearts(player.lives,MAX_LIVES);
+      invincPickups=[]; // Clear leftover invincibility from Level 3
+      endCutscene();
+      // Show blueprint intro screen — game frozen until player dismisses
+      showBlueprintIntro();
+    };
+  },400);
 }
 
 function drawCutsceneTargets(){
@@ -3485,6 +3506,12 @@ document.addEventListener("keydown",function(e){
   }
   if(state==="title"){
     if(e.code==="Enter"||e.code==="Space") startGame();
+  } else if(state==="playing"&&blueprintIntroActive){
+    if(e.code==="Enter"||e.code==="Space"){
+      dismissBlueprintIntro();
+      e.preventDefault();
+      return;
+    }
   } else if(state==="playing"&&!cutsceneActive){
     if(e.code==="ArrowLeft"||e.code==="KeyA") held.left=true;
     if(e.code==="ArrowRight"||e.code==="KeyD") held.right=true;
@@ -3719,6 +3746,44 @@ canvas.addEventListener("touchstart",cutsceneTapHandler,{passive:false});
 document.getElementById("cutscene-overlay").addEventListener("click",function(){
   if(cutsceneActive&&dialogueActive) advanceDialogue();
 });
+// Blueprint intro screen
+var blueprintIntroEl=document.getElementById("blueprint-intro");
+var blueprintIntroIconCanvas=document.getElementById("blueprint-intro-icon");
+document.getElementById("blueprint-intro-continue").textContent=isMobile?"TAP TO CONTINUE":"ENTER TO CONTINUE";
+function showBlueprintIntro(){
+  blueprintIntroActive=true;
+  blueprintIntroEl.classList.add("visible");
+  // Draw large blueprint icon on the intro canvas
+  var ic=blueprintIntroIconCanvas.getContext("2d");
+  ic.clearRect(0,0,60,60);
+  var cx=30,cy=30;
+  // Glow
+  ic.globalAlpha=0.25;ic.fillStyle="rgba(68,255,170,0.3)";
+  ic.beginPath();ic.arc(cx,cy,27,0,6.29);ic.fill();ic.globalAlpha=1;
+  // Parchment body
+  ic.fillStyle="#d4c4a0";ic.fillRect(cx-15,cy-18,30,36);
+  ic.fillStyle="#e8dcc0";ic.fillRect(cx-12,cy-15,24,30);
+  // Schematic lines
+  ic.fillStyle="#556655";
+  ic.fillRect(cx-9,cy-12,18,3);ic.fillRect(cx-9,cy-6,12,3);
+  ic.fillRect(cx-9,cy,15,3);ic.fillRect(cx-9,cy+6,9,3);
+  // Circuit marks
+  ic.fillStyle="#44ffaa";
+  ic.fillRect(cx+3,cy-9,6,3);ic.fillRect(cx-3,cy+3,6,3);ic.fillRect(cx+6,cy+9,3,3);
+  // Rolled top edge
+  ic.fillStyle="#c4b490";ic.fillRect(cx-15,cy-21,30,6);
+  ic.fillStyle="#b0a080";ic.fillRect(cx-12,cy-21,24,3);
+}
+function dismissBlueprintIntro(){
+  if(!blueprintIntroActive) return;
+  blueprintIntroActive=false;
+  blueprintIntroEl.classList.remove("visible");
+  showLevelBanner("LEVEL 4: FORGE TUNNELS",2500);
+}
+blueprintIntroEl.addEventListener("click",function(){dismissBlueprintIntro();});
+blueprintIntroEl.addEventListener("touchstart",function(e){
+  if(blueprintIntroActive){e.preventDefault();dismissBlueprintIntro();}
+},{passive:false});
 
 // === STOMP HELPERS ===
 function checkStomp(enemyTop,enemyLeft,enemyRight){
@@ -3776,6 +3841,9 @@ function update(dt){
     if(shakeTimer>0) shakeTimer=Math.max(0,shakeTimer-dt);
     return; // Skip all other updates during cutscene
   }
+
+  // Freeze gameplay during blueprint intro screen
+  if(blueprintIntroActive) return;
 
   player.prevY=player.y;
 
