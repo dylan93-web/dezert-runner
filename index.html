@@ -112,6 +112,12 @@ canvas{image-rendering:pixelated;image-rendering:crisp-edges;display:block}
 .lb-loading,.lb-error{text-align:center;padding:20px;font:11px monospace;color:#887766}
 .lb-error{color:#ff8888}
 .lb-empty{text-align:center;padding:20px;font:11px monospace;color:#887766}
+/* Patch notes styles */
+.pn-version{font:bold 20px monospace;color:#ffd700;letter-spacing:3px;text-shadow:0 0 10px rgba(255,215,0,0.4);margin:6px 0 8px}
+.pn-list{text-align:left;font:11px monospace;color:#bb9988;line-height:1.8;white-space:pre-line;letter-spacing:0.5px;max-height:180px;overflow-y:auto;padding:0 8px}
+.pn-list::-webkit-scrollbar{width:6px}
+.pn-list::-webkit-scrollbar-track{background:rgba(0,0,0,0.3)}
+.pn-list::-webkit-scrollbar-thumb{background:rgba(255,200,180,0.3);border-radius:3px}
 /* DOM HUD - SNES pixel font style (2x size) */
 #dom-hud{position:absolute;top:0;left:0;width:100%;height:auto;display:none;z-index:4;pointer-events:none;padding:8px 12px;font-family:'Press Start 2P',monospace}
 #dom-hud.visible{display:flex;justify-content:space-between;align-items:flex-start}
@@ -252,6 +258,7 @@ canvas{image-rendering:pixelated;image-rendering:crisp-edges;display:block}
       <button class="ov-btn" id="btn-howto">HOW TO PLAY</button>
       <button class="ov-btn" id="btn-title-lb">LEADERBOARD</button>
       <button class="ov-btn ov-btn-small" id="btn-title-crt">CRT: ON</button>
+      <button class="ov-btn ov-btn-small" id="btn-patchnotes">PATCH NOTES</button>
     </div>
     <div id="scr-howto" class="ov-panel ov-hidden">
       <div class="ov-heading">HOW TO PLAY</div>
@@ -288,6 +295,17 @@ canvas{image-rendering:pixelated;image-rendering:crisp-edges;display:block}
         <div class="lb-loading">Loading...</div>
       </div>
       <button class="ov-back" id="btn-lb-back">BACK</button>
+    </div>
+    <div id="scr-patchnotes" class="ov-panel ov-hidden">
+      <div class="ov-heading">PATCH NOTES</div>
+      <div class="pn-version">v1.2</div>
+      <div class="pn-list">- Added Level 4: Forge Tunnels
+- Added Level 5: Echo Guild Labs
+- Nerfed Level 3 &amp; Level 4 enemy spawns
+- Enhanced Dez rescue cutscene
+- Added CRT shader toggle
+- Leaderboard support</div>
+      <button class="ov-back" id="btn-pn-back">BACK</button>
     </div>
     <div id="scr-gameover" class="ov-panel ov-hidden">
       <div class="ov-go-title">GAME OVER</div>
@@ -1406,6 +1424,7 @@ var scrHowto=document.getElementById("scr-howto");
 var scrPaused=document.getElementById("scr-paused");
 var scrPauseHowto=document.getElementById("scr-pause-howto");
 var scrLeaderboard=document.getElementById("scr-leaderboard");
+var scrPatchnotes=document.getElementById("scr-patchnotes");
 var scrGameover=document.getElementById("scr-gameover");
 var titleBest=document.getElementById("title-best");
 var howtoText=document.getElementById("howto-text");
@@ -1489,11 +1508,13 @@ function showScreen(name){
   scrTitle.classList.add("ov-hidden");scrHowto.classList.add("ov-hidden");
   scrPaused.classList.add("ov-hidden");scrGameover.classList.add("ov-hidden");
   scrPauseHowto.classList.add("ov-hidden");scrLeaderboard.classList.add("ov-hidden");
+  scrPatchnotes.classList.add("ov-hidden");
   if(name==="title"){scrTitle.classList.remove("ov-hidden");overlay.classList.add("active");domHud.classList.remove("visible");}
   else if(name==="howto"){scrHowto.classList.remove("ov-hidden");overlay.classList.add("active");}
   else if(name==="paused"){scrPaused.classList.remove("ov-hidden");overlay.classList.add("active");}
   else if(name==="pause-howto"){scrPauseHowto.classList.remove("ov-hidden");overlay.classList.add("active");}
   else if(name==="leaderboard"){scrLeaderboard.classList.remove("ov-hidden");overlay.classList.add("active");}
+  else if(name==="patchnotes"){scrPatchnotes.classList.remove("ov-hidden");overlay.classList.add("active");}
   else if(name==="gameover"){scrGameover.classList.remove("ov-hidden");overlay.classList.add("active");}
   else{overlay.classList.remove("active");domHud.classList.add("visible");}
 }
@@ -2562,7 +2583,7 @@ function bossDefeated(){
   // Resume enemy spawning after boss (was paused at 999 during fight)
   spawnPauseTimer=2.0;
   // Start post-boss distance tracking - cutscene triggers at 500 game distance
-  postBossDistanceStart=player.x;
+  postBossDistanceStart=distance;
   postBossActive=true;
 }
 
@@ -3540,7 +3561,7 @@ document.addEventListener("keydown",function(e){
       boss.defeated=true;
       cutsceneDezTriggered=false;
       postBossActive=true;
-      postBossDistanceStart=player.x-450; // Only ~50 more distance needed
+      postBossDistanceStart=distance-450; // Only ~50 more distance needed
       enemies=[];droids=[];spiders=[];bigworms=[];
     }
   } else if(state==="paused"){
@@ -3623,6 +3644,8 @@ document.getElementById("btn-pause-lb").addEventListener("click",function(){
 });
 document.getElementById("btn-crt-toggle").addEventListener("click",toggleCRT);
 document.getElementById("btn-title-crt").addEventListener("click",toggleCRT);
+document.getElementById("btn-patchnotes").addEventListener("click",function(){showScreen("patchnotes");});
+document.getElementById("btn-pn-back").addEventListener("click",function(){showScreen("title");});
 document.getElementById("btn-lb-back").addEventListener("click",function(){
   if(state==="paused") showScreen("paused");
   else if(state==="gameover") showScreen("gameover");
@@ -3962,7 +3985,7 @@ function update(dt){
 
   // Check for post-boss cutscene trigger (500 distance after boss defeat)
   if(postBossActive&&!cutsceneDezTriggered){
-    var postBossDist=player.x-postBossDistanceStart;
+    var postBossDist=distance-postBossDistanceStart;
     if(postBossDist>=POST_BOSS_CUTSCENE_DIST){
       postBossActive=false;
       triggerDezCutscene();
